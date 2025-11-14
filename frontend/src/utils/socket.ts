@@ -92,10 +92,10 @@ export const joinByKeyword = (keyword: string, gameType: string, callback: (data
   }
 };
 
-export const connectUser = (username: string) => {
+export const connectUser = (userId: string) => {
   if (socket) {
-    console.log('Emitting user_connect with username:', username);
-    socket.emit('user_connect', { username });
+    console.log('Emitting user_connect with userId:', userId);
+    socket.emit('user_connect', { userId });
   } else {
     console.error('Cannot connect user - socket is null');
   }

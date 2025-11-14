@@ -1,4 +1,5 @@
 import { Users, Clock, Trophy } from 'lucide-react';
+import ReportUser from './ReportUser';
 
 interface Player {
   id: string;
@@ -12,6 +13,7 @@ interface GameInfoPanelProps {
   playerTeam: string;
   isMyTurn: boolean;
   gameOver: boolean;
+  currentUserId?: string;
 }
 
 export default function GameInfoPanel({
@@ -21,6 +23,7 @@ export default function GameInfoPanel({
   playerTeam,
   isMyTurn,
   gameOver,
+  currentUserId,
 }: GameInfoPanelProps) {
   const getGameName = () => {
     switch (gameType) {
@@ -136,11 +139,19 @@ export default function GameInfoPanel({
                   <p className="font-medium text-gray-800">
                     {getPlayerDisplayName(player, index)}
                   </p>
-                  {isCurrentPlayer && (
-                    <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded-full">
-                      You
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {isCurrentPlayer && (
+                      <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded-full">
+                        You
+                      </span>
+                    )}
+                    {!isCurrentPlayer && currentUserId && player.id !== currentUserId && (
+                      <ReportUser
+                        reportedUserId={player.id}
+                        reportedUsername={player.username}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
             );

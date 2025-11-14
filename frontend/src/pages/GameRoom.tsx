@@ -342,6 +342,16 @@ export default function GameRoom({
       }
     };
 
+    // Listen for account banned
+    const handleAccountBanned = (data: { message: string }) => {
+      showNotification(data.message || 'Your account has been banned', 'error');
+      // Redirect to login after a delay
+      setTimeout(() => {
+        onExitRoom();
+        onNavigate('login');
+      }, 3000);
+    };
+
     socket.on('game_start', handleGameStart);
     socket.on('waiting_for_player', handleWaiting);
     socket.on('player_joined', handlePlayerJoined);
@@ -351,6 +361,7 @@ export default function GameRoom({
     socket.on('chat_history', handleChatHistory);
     socket.on('chat_message', handleChatMessage);
     socket.on('player_left', handlePlayerLeft);
+    socket.on('account_banned', handleAccountBanned);
 
     return () => {
       socket.off('game_start', handleGameStart);
@@ -362,6 +373,7 @@ export default function GameRoom({
       socket.off('chat_history', handleChatHistory);
       socket.off('chat_message', handleChatMessage);
       socket.off('player_left', handlePlayerLeft);
+      socket.off('account_banned', handleAccountBanned);
       socket.off('connected', handleConnected);
       socket.off('error', handleError);
     };
@@ -458,6 +470,7 @@ export default function GameRoom({
                 playerTeam={getPlayerTeam()}
                 isMyTurn={getIsMyTurn()}
                 gameOver={gameOver}
+                currentUserId={userId}
               />
             )}
             {players.length === 0 && (

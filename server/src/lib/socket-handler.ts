@@ -49,42 +49,74 @@ export const setupSocketHandlers = (io: Server): void => {
     totalRequestsCounter.inc();
     activeWSConnectionsGauge.inc();
 
-    // Handle user connection
-    socket.on("user_connect", async (data: { username: string }) => {
+    // Handle user connection (after OAuth and username set)
+    socket.on("user_connect", async (data: { userId: string }) => {
       try {
         logger.info({ data }, "user_connect received");
-        const { username } = data;
+        const { userId } = data;
 
-        // Create or get user
-        let userId: string;
-        const existingUser = (await query(
-          "SELECT id FROM users WHERE session_id = ?",
-          [socket.id],
-        )) as Array<{ id: string }>;
-
-        if (existingUser.length > 0) {
-          userId = existingUser[0].id;
-          logger.info({ userId }, "Found existing user");
-          await query("UPDATE users SET session_id = ? WHERE id = ?", [
-            socket.id,
-            userId,
-          ]);
-        } else {
-          userId = uuidv4();
-          logger.info({ userId, username }, "Creating new user");
-          await query(
-            "INSERT INTO users (id, username, session_id) VALUES (?, ?, ?)",
-            [userId, username || `Player_${socket.id.substring(0, 6)}`, socket.id],
-          );
+        if (!userId) {
+          socket.emit("error", { message: "Missing userId" });
+          return;
         }
 
+        // Check if user exists and is not banned
+        const user = (await query(
+          "SELECT id, username, is_banned, username_set FROM users WHERE id = ?",
+          [userId],
+        )) as Array<{
+          id: string;
+          username: string;
+          is_banned: boolean;
+          username_set: boolean;
+        }>;
+
+        if (user.length === 0) {
+          socket.emit("error", { message: "User not found" });
+          return;
+        }
+
+        if (user[0].is_banned) {
+          socket.emit("error", {
+            message: "Your account has been banned",
+            banned: true,
+          });
+          return;
+        }
+
+        if (!user[0].username_set) {
+          socket.emit("error", {
+            message: "Please set your username first",
+            needsUsername: true,
+          });
+          return;
+        }
+
+        // Update session
+        await query("UPDATE users SET session_id = ? WHERE id = ?", [
+          socket.id,
+          userId,
+        ]);
+
         (socket as Socket & { userId: string }).userId = userId;
-        socket.emit("connected", { userId, username });
+        socket.emit("connected", {
+          userId,
+          username: user[0].username,
+        });
       } catch (error) {
         logger.error(error, "Error in user_connect");
         socket.emit("error", { message: "Failed to connect user" });
       }
     });
+
+    // Check if user is banned
+    const checkUserBanned = async (userId: string): Promise<boolean> => {
+      const user = (await query(
+        "SELECT is_banned FROM users WHERE id = ?",
+        [userId],
+      )) as Array<{ is_banned: boolean }>;
+      return user.length > 0 && user[0].is_banned;
+    };
 
     // Handle joining random room
     socket.on("join_random", async (data: { gameType: string }) => {
@@ -92,7 +124,16 @@ export const setupSocketHandlers = (io: Server): void => {
         const socketWithUserId = socket as Socket & { userId?: string };
         if (!socketWithUserId.userId) {
           socket.emit("error", {
-            message: "User not connected. Please set your username first.",
+            message: "User not connected. Please authenticate first.",
+          });
+          return;
+        }
+
+        // Check if banned
+        if (await checkUserBanned(socketWithUserId.userId)) {
+          socket.emit("error", {
+            message: "Your account has been banned",
+            banned: true,
           });
           return;
         }
@@ -301,6 +342,15 @@ export const setupSocketHandlers = (io: Server): void => {
             return;
           }
 
+          // Check if banned
+          if (await checkUserBanned(socketWithUserId.userId)) {
+            socket.emit("error", {
+              message: "Your account has been banned",
+              banned: true,
+            });
+            return;
+          }
+
           const { gameType, keyword } = data;
           let room = null;
 
@@ -440,6 +490,15 @@ export const setupSocketHandlers = (io: Server): void => {
         const socketWithUserId = socket as Socket & { userId?: string };
         if (!socketWithUserId.userId) {
           socket.emit("error", { message: "User not connected" });
+          return;
+        }
+
+        // Check if banned
+        if (await checkUserBanned(socketWithUserId.userId)) {
+          socket.emit("error", {
+            message: "Your account has been banned",
+            banned: true,
+          });
           return;
         }
 
@@ -635,6 +694,110 @@ export const setupSocketHandlers = (io: Server): void => {
       } catch (error) {
         logger.error(error, "Error in pawn_promotion");
         socket.emit("error", { message: "Failed to promote pawn" });
+      }
+    });
+
+    // Handle user report
+    socket.on("report_user", async (data: {
+      reportedUserId: string;
+      reason: string;
+    }) => {
+      try {
+        const socketWithUserId = socket as Socket & { userId?: string };
+        if (!socketWithUserId.userId) {
+          socket.emit("error", { message: "User not connected" });
+          return;
+        }
+
+        const { reportedUserId, reason } = data;
+
+        if (!reportedUserId || !reason) {
+          socket.emit("error", { message: "Missing reportedUserId or reason" });
+          return;
+        }
+
+        // Can't report yourself
+        if (socketWithUserId.userId === reportedUserId) {
+          socket.emit("error", { message: "Cannot report yourself" });
+          return;
+        }
+
+        // Check if already reported by this user in this room
+        const roomId = userRooms.get(socketWithUserId.userId);
+        const existingReport = (await query(
+          "SELECT id FROM reports WHERE reported_user_id = ? AND reporter_user_id = ? AND (room_id = ? OR room_id IS NULL)",
+          [reportedUserId, socketWithUserId.userId, roomId || null],
+        )) as Array<{ id: string }>;
+
+        if (existingReport.length > 0) {
+          socket.emit("error", {
+            message: "You have already reported this user",
+          });
+          return;
+        }
+
+        // Create report
+        const reportId = uuidv4();
+        await query(
+          `INSERT INTO reports (id, reported_user_id, reporter_user_id, room_id, reason)
+           VALUES (?, ?, ?, ?, ?)`,
+          [
+            reportId,
+            reportedUserId,
+            socketWithUserId.userId,
+            roomId || null,
+            reason,
+          ],
+        );
+
+        // Increment report count
+        await query(
+          "UPDATE users SET report_count = report_count + 1 WHERE id = ?",
+          [reportedUserId],
+        );
+
+        // Check if user should be banned (5 reports)
+        const userReportCount = (await query(
+          "SELECT report_count FROM users WHERE id = ?",
+          [reportedUserId],
+        )) as Array<{ report_count: number }>;
+
+        if (userReportCount.length > 0 && userReportCount[0].report_count >= 5) {
+          // Ban the user
+          await query(
+            `UPDATE users 
+             SET is_banned = TRUE, banned_at = NOW(), ban_reason = ?
+             WHERE id = ?`,
+            [
+              `Account banned due to ${userReportCount[0].report_count} reports`,
+              reportedUserId,
+            ],
+          );
+
+          // Notify all sockets of this user to disconnect
+          const bannedUserSockets = await io.in(reportedUserId).fetchSockets();
+          for (const bannedSocket of bannedUserSockets) {
+            bannedSocket.emit("account_banned", {
+              message: "Your account has been banned due to multiple reports",
+            });
+            bannedSocket.disconnect();
+          }
+
+          logger.info(
+            `User ${reportedUserId} banned due to ${userReportCount[0].report_count} reports`,
+          );
+        }
+
+        socket.emit("report_success", {
+          message: "User reported successfully",
+        });
+
+        logger.info(
+          `User ${socketWithUserId.userId} reported ${reportedUserId} for: ${reason}`,
+        );
+      } catch (error) {
+        logger.error(error, "Error in report_user");
+        socket.emit("error", { message: "Failed to report user" });
       }
     });
 
