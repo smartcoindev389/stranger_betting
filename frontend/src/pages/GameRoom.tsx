@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { RotateCcw, LogOut } from 'lucide-react';
 import Header from '../components/Header';
 import GameBoard from '../components/GameBoard';
+import GameInfoPanel from '../components/GameInfoPanel';
 import ChatPanel from '../components/ChatPanel';
 import VideoPanel from '../components/VideoPanel';
 import { getSocket } from '../utils/socket';
@@ -52,9 +53,62 @@ export default function GameRoom({
   const [players, setPlayers] = useState<any[]>([]);
   const [isWaiting, setIsWaiting] = useState(true);
   const [gameOver, setGameOver] = useState(false);
+  const [canMove, setCanMove] = useState(false); // Track if moves are allowed (2 players present)
   const [userId, setUserId] = useState<string>(propUserId || '');
   const [localRoomId, setLocalRoomId] = useState<string>(roomId || '');
   const gameStateRef = useRef<any>(null); // Ref to track gameState for event handlers
+
+  // Determine player team and turn
+  const getPlayerTeam = (): string => {
+    if (!players.length || !userId) return '';
+    const currentPlayerIndex = players.findIndex((p: any) => p.id === userId);
+    if (currentPlayerIndex === -1) return '';
+
+    if (gameType === 'tic-tac-toe') {
+      return currentPlayerIndex === 0 ? 'X' : 'O';
+    } else if (gameType === 'checkers') {
+      return currentPlayerIndex === 0 ? 'player1' : 'player2';
+    } else if (gameType === 'chess') {
+      return currentPlayerIndex === 0 ? 'w' : 'b';
+    }
+    return '';
+  };
+
+  const getIsMyTurn = (): boolean => {
+    // Can't move if less than 2 players
+    if (!canMove || players.length < 2) {
+      return false;
+    }
+    
+    if (!gameState || !userId) {
+      console.log('getIsMyTurn: No gameState or userId', { gameState: !!gameState, userId: !!userId });
+      return false;
+    }
+    const playerTeam = getPlayerTeam();
+    if (!playerTeam) {
+      console.log('getIsMyTurn: No playerTeam');
+      return false;
+    }
+    
+    let isMyTurn = false;
+    if (gameType === 'tic-tac-toe') {
+      isMyTurn = gameState.currentPlayer === playerTeam;
+    } else if (gameType === 'checkers') {
+      isMyTurn = gameState.currentPlayer === playerTeam;
+    } else if (gameType === 'chess') {
+      isMyTurn = gameState.currentTeam === playerTeam;
+    }
+    
+    console.log('getIsMyTurn:', { 
+      gameType, 
+      playerTeam, 
+      currentPlayer: gameState.currentPlayer || gameState.currentTeam, 
+      isMyTurn,
+      canMove,
+      playerCount: players.length
+    });
+    return isMyTurn;
+  };
 
   useEffect(() => {
     const socket = getSocket();
@@ -63,10 +117,20 @@ export default function GameRoom({
       return;
     }
 
-    console.log('GameRoom useEffect - roomId:', roomId, 'gameType:', gameType);
+    console.log('GameRoom useEffect - roomId:', roomId, 'gameType:', gameType, 'gameState:', gameState);
     
     // Initialize gameStateRef from current gameState
     gameStateRef.current = gameState;
+
+    // Listen for socket errors
+    const handleError = (error: any) => {
+      console.error('Socket error:', error);
+      if (error.message) {
+        alert(`Error: ${error.message}`);
+      }
+    };
+    
+    socket.on('error', handleError);
 
     // Get userId from socket connected event or prop
     const handleConnected = (data: { userId: string; username: string }) => {
@@ -84,6 +148,13 @@ export default function GameRoom({
     // Initialize localRoomId from prop if available
     if (roomId && !localRoomId) {
       setLocalRoomId(roomId);
+    }
+
+    // Request current game state if we have a roomId but no gameState
+    // This handles the case where user navigates to room after game_start was already sent
+    if ((roomId || localRoomId) && !gameState) {
+      console.log('Requesting game state for room:', roomId || localRoomId);
+      socket.emit('request_game_state');
     }
 
     // Listen for game start
@@ -106,12 +177,22 @@ export default function GameRoom({
           setLocalRoomId(data.roomId);
         }
         // IMPORTANT: Set game state and waiting state FIRST to prevent race conditions
-        gameStateRef.current = data.gameState; // Update ref immediately
-        setGameState(data.gameState);
-        setPlayers(data.players || []);
-        setIsWaiting(false); // Always set to false when game starts
+        if (data.gameState) {
+          gameStateRef.current = data.gameState; // Update ref immediately
+          setGameState(data.gameState);
+          console.log('✅ Game state set:', data.gameState);
+        }
+        if (data.players) {
+          setPlayers(data.players);
+          console.log('✅ Players set:', data.players);
+        }
+        // Set canMove based on whether 2 players are present
+        const playerCount = data.players?.length || 0;
+        const movesAllowed = data.canMove !== undefined ? data.canMove : playerCount >= 2;
+        setCanMove(movesAllowed);
+        setIsWaiting(playerCount < 2); // Set waiting only if less than 2 players
         setGameOver(false);
-        console.log('✅ Game state set, isWaiting set to false, players:', data.players?.length || 0);
+        console.log('✅ Game started - canMove:', movesAllowed, 'players:', playerCount);
       } else {
         console.log('❌ Ignoring game_start - roomId mismatch. Current:', currentRoomId, 'Event:', data.roomId);
       }
@@ -139,15 +220,16 @@ export default function GameRoom({
         if (playerCount >= 2) {
           console.log('2 players present - setting isWaiting to false immediately');
           setIsWaiting(false);
+          setCanMove(true);
           return; // Don't process further
         }
         
-        // Only set waiting if:
-        // 1. We don't already have a game state (prevent race condition)
-        // 2. AND we have less than 2 players
-        if (!gameStateRef.current && playerCount < 2) {
-          console.log('Setting waiting state to true (no gameState, players:', playerCount, ')');
+        // Only set waiting if we have less than 2 players
+        // But don't override gameState if it already exists
+        if (playerCount < 2) {
+          console.log('Setting waiting state (players:', playerCount, ')');
           setIsWaiting(true);
+          setCanMove(false);
         } else {
           console.log('Ignoring waiting_for_player - game already started');
         }
@@ -157,9 +239,13 @@ export default function GameRoom({
     // Listen for move updates
     const handleMoveUpdate = (data: any) => {
       console.log('Move update:', data);
-      gameStateRef.current = data.gameState; // Update ref
-      setGameState(data.gameState);
-      setIsWaiting(false);
+      if (data.gameState) {
+        gameStateRef.current = data.gameState; // Update ref immediately
+        setGameState(data.gameState);
+        setIsWaiting(false);
+        setCanMove(true); // Moves are allowed when receiving move updates (2 players present)
+        console.log('✅ Game state updated after move:', data.gameState);
+      }
     };
 
     // Listen for game over
@@ -245,10 +331,10 @@ export default function GameRoom({
           setLocalRoomId(data.roomId);
         }
         
-        // CRITICAL: If we now have 2 players, immediately hide waiting notification
-        // Game should start soon, so don't show "waiting" message
+        // CRITICAL: If we now have 2 players, enable moves and hide waiting notification
         if (playerCount >= 2) {
-          console.log('Two players in room, setting isWaiting to false, waiting for game_start event...');
+          console.log('Two players in room, enabling moves and setting isWaiting to false');
+          setCanMove(true);
           setIsWaiting(false);
         }
       }
@@ -275,6 +361,7 @@ export default function GameRoom({
       socket.off('chat_message', handleChatMessage);
       socket.off('player_left', handlePlayerLeft);
       socket.off('connected', handleConnected);
+      socket.off('error', handleError);
     };
   }, [roomId, localRoomId, userId]);
 
@@ -298,20 +385,26 @@ export default function GameRoom({
       <Header isConnected={isConnected} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {isWaiting && !gameState && players.length > 0 && players.length < 2 && (
+        {isWaiting && players.length > 0 && players.length < 2 && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6 text-center">
             <p className="text-yellow-800 font-semibold">
               Waiting for another player to join...
             </p>
             <p className="text-yellow-600 text-sm mt-1">
-              {players.length}/2 players in room
+              {players.length}/2 players in room - Moves will be enabled when both players join
             </p>
           </div>
         )}
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-            {!isWaiting && gameState ? (
-              <GameBoard key={`board-${roomId || localRoomId}`} gameType={gameType} gameState={gameState} />
+            {gameState ? (
+              <GameBoard
+                key={`board-${roomId || localRoomId}`}
+                gameType={gameType}
+                gameState={gameState}
+                playerTeam={getPlayerTeam()}
+                isMyTurn={getIsMyTurn()}
+              />
             ) : isWaiting ? (
               <div className="bg-white rounded-2xl shadow-lg p-6 flex items-center justify-center min-h-[500px]">
                 <div className="text-center">
@@ -355,6 +448,23 @@ export default function GameRoom({
           </div>
 
           <div className="space-y-6">
+            {players.length > 0 && (
+              <GameInfoPanel
+                gameType={gameType}
+                players={players}
+                gameState={gameState}
+                playerTeam={getPlayerTeam()}
+                isMyTurn={getIsMyTurn()}
+                gameOver={gameOver}
+              />
+            )}
+            {players.length === 0 && (
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <div className="text-center text-gray-500">
+                  <p>Waiting for players...</p>
+                </div>
+              </div>
+            )}
             <ChatPanel onSendMessage={handleSendMessage} messages={messages} />
             <VideoPanel onStartVideo={onStartVideo} onEndCall={onEndCall} />
           </div>

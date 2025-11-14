@@ -38,7 +38,19 @@ export const getSocket = (): Socket | null => {
 
 export const emitMove = (gameType: string, move: unknown) => {
   if (socket) {
+    console.log('emitMove called:', { gameType, move, socketConnected: socket.connected });
     socket.emit('player_move', { gameType, move });
+    
+    // Listen for error response
+    socket.once('error', (error: any) => {
+      console.error('Move error:', error);
+      if (error.message) {
+        alert(`Move failed: ${error.message}`);
+      }
+    });
+  } else {
+    console.error('Cannot emit move - socket is null');
+    alert('Not connected to server. Please refresh the page.');
   }
 };
 

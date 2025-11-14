@@ -142,18 +142,36 @@ export const setupSocketHandlers = (io: Server): void => {
 
             const players = await getRoomPlayers(existingRoom.id);
 
-            if (players.length === 2) {
-              const game = initializeGame(gameType as GameType);
+            // Initialize game immediately (even with 1 player) so board is visible
+            let game = getGame(existingRoom.id);
+            if (!game) {
+              game = initializeGame(gameType as GameType);
               setGame(existingRoom.id, game);
+            }
+            const gameState = getGameState(game);
+
+            if (players.length === 2) {
               await updateRoomStatus(existingRoom.id, "playing");
-              const gameState = getGameState(game);
-              io.to(existingRoom.id).emit("game_start", {
+              // Use setTimeout to ensure socket room join is complete
+              setTimeout(() => {
+                io.to(existingRoom.id).emit("game_start", {
+                  roomId: existingRoom.id,
+                  gameType,
+                  players,
+                  gameState,
+                  canMove: true, // Allow moves when 2 players are present
+                });
+              }, 100);
+            } else {
+              // Send game state even with 1 player so board is visible
+              logger.info(`Sending game_start to single player in existing room ${existingRoom.id}, players: ${players.length}`);
+              socket.emit("game_start", {
                 roomId: existingRoom.id,
                 gameType,
                 players,
                 gameState,
+                canMove: false, // Disable moves until 2 players join
               });
-            } else {
               socket.emit("waiting_for_player", {
                 roomId: existingRoom.id,
                 players,
@@ -196,7 +214,7 @@ export const setupSocketHandlers = (io: Server): void => {
           }
         }
 
-        // Join socket room
+        // Join socket room FIRST before checking players
         socket.join(room.id);
         userRooms.set(socketWithUserId.userId, room.id);
 
@@ -226,23 +244,44 @@ export const setupSocketHandlers = (io: Server): void => {
 
         const players = await getRoomPlayers(room.id);
 
-        if (players.length === 2) {
-          const game = initializeGame(gameType as GameType);
+        // Initialize game immediately (even with 1 player) so board is visible
+        let game = getGame(room.id);
+        if (!game) {
+          game = initializeGame(gameType as GameType);
           setGame(room.id, game);
+        }
+        const gameState = getGameState(game);
+
+        if (players.length === 2) {
           await updateRoomStatus(room.id, "playing");
-          const gameState = getGameState(game);
-          io.to(room.id).emit("game_start", {
+          // Use setTimeout to ensure socket room join is complete
+          setTimeout(() => {
+            io.to(room.id).emit("game_start", {
+              roomId: room.id,
+              gameType,
+              players,
+              gameState,
+              canMove: true, // Allow moves when 2 players are present
+            });
+          }, 100);
+        } else {
+          // Send game state even with 1 player so board is visible
+          logger.info(`Sending game_start to single player in room ${room.id}, players: ${players.length}`);
+          socket.emit("game_start", {
             roomId: room.id,
             gameType,
             players,
             gameState,
+            canMove: false, // Disable moves until 2 players join
           });
-        } else {
           socket.emit("waiting_for_player", { roomId: room.id, players });
-          socket.to(room.id).emit("player_joined", {
-            roomId: room.id,
-            players,
-          });
+          // Only emit player_joined to other players in the room (if any)
+          if (players.length > 1) {
+            socket.to(room.id).emit("player_joined", {
+              roomId: room.id,
+              players,
+            });
+          }
         }
       } catch (error) {
         logger.error(error, "Error in join_random");
@@ -298,23 +337,44 @@ export const setupSocketHandlers = (io: Server): void => {
 
           const players = await getRoomPlayers(room.id);
 
-          if (players.length === 2) {
-            const game = initializeGame(gameType as GameType);
+          // Initialize game immediately (even with 1 player) so board is visible
+          let game = getGame(room.id);
+          if (!game) {
+            game = initializeGame(gameType as GameType);
             setGame(room.id, game);
+          }
+          const gameState = getGameState(game);
+
+          if (players.length === 2) {
             await updateRoomStatus(room.id, "playing");
-            const gameState = getGameState(game);
-            io.to(room.id).emit("game_start", {
+            // Use setTimeout to ensure socket room join is complete
+            setTimeout(() => {
+              io.to(room.id).emit("game_start", {
+                roomId: room.id,
+                gameType,
+                players,
+                gameState,
+                canMove: true, // Allow moves when 2 players are present
+              });
+            }, 100);
+          } else {
+            // Send game state even with 1 player so board is visible
+            logger.info(`Sending game_start to single player in keyword room ${room.id}, players: ${players.length}`);
+            socket.emit("game_start", {
               roomId: room.id,
               gameType,
               players,
               gameState,
+              canMove: false, // Disable moves until 2 players join
             });
-          } else {
             socket.emit("waiting_for_player", { roomId: room.id, players });
-            socket.to(room.id).emit("player_joined", {
-              roomId: room.id,
-              players,
-            });
+            // Only emit player_joined to other players in the room (if any)
+            if (players.length > 1) {
+              socket.to(room.id).emit("player_joined", {
+                roomId: room.id,
+                players,
+              });
+            }
           }
         } catch (error) {
           logger.error(error, "Error in join_keyword");
@@ -322,6 +382,56 @@ export const setupSocketHandlers = (io: Server): void => {
         }
       },
     );
+
+    // Handle request for current game state (when user joins/reconnects)
+    socket.on("request_game_state", async () => {
+      try {
+        const socketWithUserId = socket as Socket & { userId?: string };
+        if (!socketWithUserId.userId) {
+          socket.emit("error", { message: "User not connected" });
+          return;
+        }
+
+        const roomId = userRooms.get(socketWithUserId.userId);
+        if (!roomId) {
+          socket.emit("error", { message: "Not in a room" });
+          return;
+        }
+
+        const game = getGame(roomId);
+        if (game) {
+          // Get game type from database
+          const roomInfo = (await query(
+            "SELECT game_type FROM rooms WHERE id = ?",
+            [roomId],
+          )) as Array<{ game_type: string }>;
+          
+          if (roomInfo.length === 0) {
+            socket.emit("error", { message: "Room not found" });
+            return;
+          }
+          
+          const gameType = roomInfo[0].game_type;
+          const players = await getRoomPlayers(roomId);
+          const gameState = getGameState(game);
+          const playerCount = players.length;
+          
+          socket.emit("game_start", {
+            roomId: roomId,
+            gameType: gameType,
+            players,
+            gameState,
+            canMove: playerCount >= 2,
+          });
+          logger.info(`Sent game state to user ${socketWithUserId.userId} for room ${roomId}, gameType: ${gameType}`);
+        } else {
+          logger.info(`No game found for room ${roomId} when user ${socketWithUserId.userId} requested state`);
+        }
+      } catch (error) {
+        logger.error(error, "Error in request_game_state");
+        socket.emit("error", { message: "Failed to get game state" });
+      }
+    });
 
     // Handle player move
     socket.on("player_move", async (data: { gameType: string; move: unknown }) => {
@@ -345,6 +455,12 @@ export const setupSocketHandlers = (io: Server): void => {
         }
 
         const players = await getRoomPlayers(roomId);
+        
+        // Check if 2 players are present before allowing moves
+        if (players.length < 2) {
+          socket.emit("error", { message: "Waiting for another player to join" });
+          return;
+        }
         const currentPlayerIndex = players.findIndex(
           (p) => p.id === socketWithUserId.userId,
         );
@@ -369,15 +485,19 @@ export const setupSocketHandlers = (io: Server): void => {
         );
 
         if (!result.valid) {
+          logger.error(`Invalid move from user ${socketWithUserId.userId}: ${result.error}`);
           socket.emit("error", { message: result.error || "Invalid move" });
           return;
         }
+        
+        logger.info(`Valid move from user ${socketWithUserId.userId}, team ${playerTeam}, gameType ${data.gameType}`);
 
-        // Broadcast move to all players in room
+        // Broadcast move to all players in room (including the player who made the move)
         const updatedState = getGameState(game);
         io.to(roomId).emit("move_update", {
           move: data.move,
           gameState: updatedState,
+          roomId: roomId,
         });
 
         // Check if game is over
