@@ -6,6 +6,7 @@ import GameInfoPanel from '../components/GameInfoPanel';
 import ChatPanel from '../components/ChatPanel';
 import VideoPanel from '../components/VideoPanel';
 import { getSocket } from '../utils/socket';
+import { useNotification } from '../contexts/NotificationContext';
 
 interface Message {
   id: string;
@@ -40,6 +41,7 @@ export default function GameRoom({
   onRematch,
   onExitRoom,
 }: GameRoomProps) {
+  const { showNotification } = useNotification();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -126,7 +128,7 @@ export default function GameRoom({
     const handleError = (error: any) => {
       console.error('Socket error:', error);
       if (error.message) {
-        alert(`Error: ${error.message}`);
+        showNotification(`Error: ${error.message}`, 'error');
       }
     };
     
@@ -312,7 +314,7 @@ export default function GameRoom({
 
     // Listen for player left
     const handlePlayerLeft = () => {
-      alert('Opponent left the game');
+      showNotification('Opponent left the game', 'info');
       setIsWaiting(true);
     };
 

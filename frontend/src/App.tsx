@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import Home from './pages/Home';
 import GameRoom from './pages/GameRoom';
 import Lobby from './pages/Lobby';
-import { connectSocket, disconnectSocket, sendChatMessage, getSocket, connectUser } from './utils/socket';
+import { connectSocket, disconnectSocket, sendChatMessage, getSocket, connectUser, setNotificationHandler } from './utils/socket';
 import { startVideo, closePeerConnection } from './utils/webrtc';
+import { NotificationProvider, useNotification } from './contexts/NotificationContext';
+import NotificationContainer from './components/Notification';
 
 type Page = 'home' | 'game-room' | 'lobby';
 
@@ -13,13 +15,21 @@ interface NavigationData {
   roomId?: string;
 }
 
-function App() {
+function AppContent() {
   const [currentPage, setCurrentPage] = useState<Page>('home');
   const [isConnected, setIsConnected] = useState(false);
   const [currentGameType, setCurrentGameType] = useState<'tic-tac-toe' | 'checkers' | 'chess'>('tic-tac-toe');
   const [currentRoomId, setCurrentRoomId] = useState<string>('');
   const [username, setUsername] = useState<string>('');
   const [userId, setUserId] = useState<string>('');
+  const { notifications, removeNotification, showNotification } = useNotification();
+
+  useEffect(() => {
+    // Set up notification handler for socket errors
+    setNotificationHandler((message, type = 'error') => {
+      showNotification(message, type);
+    });
+  }, [showNotification]);
 
   useEffect(() => {
     const socket = connectSocket();
@@ -96,6 +106,7 @@ function App() {
 
   return (
     <>
+      <NotificationContainer notifications={notifications} onClose={removeNotification} />
       {currentPage === 'home' && (
         <Home onNavigate={handleNavigate} isConnected={isConnected} onUserConnect={handleUserConnect} />
       )}
@@ -117,6 +128,14 @@ function App() {
         <Lobby onNavigate={handleNavigate} isConnected={isConnected} />
       )}
     </>
+  );
+}
+
+function App() {
+  return (
+    <NotificationProvider>
+      <AppContent />
+    </NotificationProvider>
   );
 }
 

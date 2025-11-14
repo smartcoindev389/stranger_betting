@@ -35,6 +35,7 @@ import {
   validateMove,
   GameType,
 } from "../utils/gameManager.js";
+import { ChessGame } from "../games/chess.js";
 import logger from "./logger.js";
 import { activeWSConnectionsGauge, totalRequestsCounter } from "./monitor.js";
 
@@ -494,6 +495,20 @@ export const setupSocketHandlers = (io: Server): void => {
 
         // Broadcast move to all players in room (including the player who made the move)
         const updatedState = getGameState(game);
+        
+        // Check if pawn promotion is pending
+        const chessState = updatedState as {
+          pendingPromotion?: { x: number; y: number; team: string } | null;
+        };
+        
+        if (data.gameType === "chess" && chessState.pendingPromotion) {
+          // Emit promotion request to the player who made the move
+          socket.emit("pawn_promotion_required", {
+            position: chessState.pendingPromotion,
+            roomId: roomId,
+          });
+        }
+        
         io.to(roomId).emit("move_update", {
           move: data.move,
           gameState: updatedState,
@@ -558,6 +573,68 @@ export const setupSocketHandlers = (io: Server): void => {
       } catch (error) {
         logger.error(error, "Error in player_move");
         socket.emit("error", { message: "Failed to process move" });
+      }
+    });
+
+    // Handle pawn promotion
+    socket.on("pawn_promotion", async (data: { 
+      position: { x: number; y: number }; 
+      promotionType: string;
+      gameType: string;
+    }) => {
+      try {
+        const socketWithUserId = socket as Socket & { userId?: string };
+        if (!socketWithUserId.userId) {
+          socket.emit("error", { message: "User not connected" });
+          return;
+        }
+
+        const roomId = userRooms.get(socketWithUserId.userId);
+        if (!roomId) {
+          socket.emit("error", { message: "Not in a room" });
+          return;
+        }
+
+        if (data.gameType !== "chess") {
+          socket.emit("error", { message: "Invalid game type for promotion" });
+          return;
+        }
+
+        const game = getGame(roomId);
+        if (!game) {
+          socket.emit("error", { message: "Game not found" });
+          return;
+        }
+
+        const players = await getRoomPlayers(roomId);
+        const currentPlayerIndex = players.findIndex(
+          (p) => p.id === socketWithUserId.userId,
+        );
+        const playerTeam = currentPlayerIndex === 0 ? "w" : "b";
+
+        const chessGame = game as ChessGame;
+        const success = chessGame.promotePawn(
+          data.position,
+          data.promotionType,
+          playerTeam,
+        );
+
+        if (!success) {
+          socket.emit("error", { message: "Invalid promotion" });
+          return;
+        }
+
+        const updatedState = getGameState(game);
+        io.to(roomId).emit("move_update", {
+          move: { type: "promotion", position: data.position, promotionType: data.promotionType },
+          gameState: updatedState,
+          roomId: roomId,
+        });
+
+        logger.info(`Pawn promoted by user ${socketWithUserId.userId} to ${data.promotionType}`);
+      } catch (error) {
+        logger.error(error, "Error in pawn_promotion");
+        socket.emit("error", { message: "Failed to promote pawn" });
       }
     });
 

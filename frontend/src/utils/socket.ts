@@ -1,5 +1,21 @@
 import { io, Socket } from 'socket.io-client';
 
+// We'll export a function to set the notification handler
+let notificationHandler: ((message: string, type?: 'error' | 'success' | 'info' | 'warning') => void) | null = null;
+
+export const setNotificationHandler = (handler: (message: string, type?: 'error' | 'success' | 'info' | 'warning') => void) => {
+  notificationHandler = handler;
+};
+
+const showNotification = (message: string, type: 'error' | 'success' | 'info' | 'warning' = 'error') => {
+  if (notificationHandler) {
+    notificationHandler(message, type);
+  } else {
+    // Fallback to console if handler not set
+    console.error('Notification:', message);
+  }
+};
+
 let socket: Socket | null = null;
 
 export const connectSocket = (url: string = 'http://localhost:3001'): Socket => {
@@ -45,12 +61,12 @@ export const emitMove = (gameType: string, move: unknown) => {
     socket.once('error', (error: any) => {
       console.error('Move error:', error);
       if (error.message) {
-        alert(`Move failed: ${error.message}`);
+        showNotification(`Move failed: ${error.message}`, 'error');
       }
     });
   } else {
     console.error('Cannot emit move - socket is null');
-    alert('Not connected to server. Please refresh the page.');
+    showNotification('Not connected to server. Please refresh the page.', 'error');
   }
 };
 
@@ -119,5 +135,17 @@ export const offChatMessage = () => {
 export const offGameUpdate = () => {
   if (socket) {
     socket.off('game_update');
+  }
+};
+
+export const emitPawnPromotion = (position: { x: number; y: number }, promotionType: string) => {
+  if (socket) {
+    socket.emit('pawn_promotion', {
+      position,
+      promotionType,
+      gameType: 'chess',
+    });
+  } else {
+    console.error('Cannot emit promotion - socket is null');
   }
 };

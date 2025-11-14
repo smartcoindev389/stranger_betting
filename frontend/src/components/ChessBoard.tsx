@@ -1,5 +1,19 @@
 import { useState, useEffect } from 'react';
-import { emitMove } from '../utils/socket';
+import { emitMove, getSocket, emitPawnPromotion } from '../utils/socket';
+
+// Import chess piece images
+import pawn_w from '../assets/pawn_w.webp';
+import pawn_b from '../assets/pawn_b.webp';
+import rook_w from '../assets/rook_w.webp';
+import rook_b from '../assets/rook_b.webp';
+import knight_w from '../assets/knight_w.webp';
+import knight_b from '../assets/knight_b.webp';
+import bishop_w from '../assets/bishop_w.webp';
+import bishop_b from '../assets/bishop_b.webp';
+import queen_w from '../assets/queen_w.webp';
+import queen_b from '../assets/queen_b.webp';
+import king_w from '../assets/king_w.webp';
+import king_b from '../assets/king_b.webp';
 
 interface ChessPiece {
   type: string;
@@ -14,6 +28,7 @@ interface ChessBoardProps {
     totalTurns: number;
     currentTeam: string;
     winningTeam: string | null;
+    pendingPromotion?: { x: number; y: number; team: string } | null;
   };
   playerTeam: string;
   isMyTurn: boolean;
@@ -21,38 +36,63 @@ interface ChessBoardProps {
 
 const PIECE_IMAGES: Record<string, Record<string, string>> = {
   w: {
-    pawn: '♙',
-    rook: '♖',
-    knight: '♘',
-    bishop: '♗',
-    queen: '♕',
-    king: '♔',
+    pawn: pawn_w,
+    rook: rook_w,
+    knight: knight_w,
+    bishop: bishop_w,
+    queen: queen_w,
+    king: king_w,
   },
   b: {
-    pawn: '♟',
-    rook: '♜',
-    knight: '♞',
-    bishop: '♝',
-    queen: '♛',
-    king: '♚',
+    pawn: pawn_b,
+    rook: rook_b,
+    knight: knight_b,
+    bishop: bishop_b,
+    queen: queen_b,
+    king: king_b,
   },
 };
 
 export default function ChessBoard({ gameState, playerTeam, isMyTurn }: ChessBoardProps) {
   const [selectedPiece, setSelectedPiece] = useState<ChessPiece | null>(null);
   const [possibleMoves, setPossibleMoves] = useState<Array<{ x: number; y: number }>>([]);
+  const [promotionPosition, setPromotionPosition] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     setSelectedPiece(null);
     setPossibleMoves([]);
   }, [gameState.currentTeam]);
 
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handlePromotionRequired = (data: { position: { x: number; y: number; team: string } }) => {
+      if (data.position && data.position.team === playerTeam) {
+        setPromotionPosition({ x: data.position.x, y: data.position.y });
+      }
+    };
+
+    socket.on('pawn_promotion_required', handlePromotionRequired);
+
+    return () => {
+      socket.off('pawn_promotion_required', handlePromotionRequired);
+    };
+  }, [playerTeam]);
+
+  useEffect(() => {
+    // Check if there's a pending promotion in gameState
+    if (gameState.pendingPromotion && gameState.pendingPromotion.team === playerTeam) {
+      setPromotionPosition(gameState.pendingPromotion);
+    }
+  }, [gameState.pendingPromotion, playerTeam]);
+
   const getPieceAt = (x: number, y: number): ChessPiece | undefined => {
     return gameState.pieces.find(p => p.position.x === x && p.position.y === y);
   };
 
   const handleSquareClick = (x: number, y: number) => {
-    if (!isMyTurn || gameState.winningTeam) return;
+    if (!isMyTurn || gameState.winningTeam || promotionPosition) return;
 
     const piece = getPieceAt(x, y);
 
@@ -66,9 +106,25 @@ export default function ChessBoard({ gameState, playerTeam, isMyTurn }: ChessBoa
     // If a piece is selected and clicking on empty square or opponent piece, try to move
     if (selectedPiece) {
       const move = { from: selectedPiece.position, to: { x, y } };
+      
+      // Check if this is a pawn promotion move
+      // Don't send promotionType - let the server detect it and request promotion
+      const promotionRow = playerTeam === 'w' ? 7 : 0;
+      if (selectedPiece.type === 'pawn' && y === promotionRow) {
+        // Don't include promotionType - server will detect and request it
+        // This allows the user to choose the promotion piece via modal
+      }
+      
       emitMove('chess', move);
       setSelectedPiece(null);
       setPossibleMoves([]);
+    }
+  };
+
+  const handlePromotionChoice = (promotionType: string) => {
+    if (promotionPosition) {
+      emitPawnPromotion(promotionPosition, promotionType);
+      setPromotionPosition(null);
     }
   };
 
@@ -211,7 +267,7 @@ export default function ChessBoard({ gameState, playerTeam, isMyTurn }: ChessBoa
       <button
         key={`${x}-${y}`}
         onClick={() => handleSquareClick(x, y)}
-        disabled={!isMyTurn || gameState.winningTeam !== null}
+        disabled={!isMyTurn || gameState.winningTeam !== null || promotionPosition !== null}
         className={`
           w-16 h-16 flex items-center justify-center text-3xl
           ${isLight ? 'bg-amber-100' : 'bg-amber-800'}
@@ -221,7 +277,13 @@ export default function ChessBoard({ gameState, playerTeam, isMyTurn }: ChessBoa
           ${piece && piece.team === playerTeam && isMyTurn ? 'cursor-pointer hover:opacity-80' : ''}
         `}
       >
-        {piece && PIECE_IMAGES[piece.team]?.[piece.type]}
+        {piece && (
+          <img 
+            src={PIECE_IMAGES[piece.team]?.[piece.type]} 
+            alt={`${piece.team} ${piece.type}`}
+            className="w-12 h-12 object-contain"
+          />
+        )}
       </button>
     );
   };
@@ -244,6 +306,32 @@ export default function ChessBoard({ gameState, playerTeam, isMyTurn }: ChessBoa
           return renderSquare(x, renderY);
         })}
       </div>
+
+      {/* Pawn Promotion Modal */}
+      {promotionPosition && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 shadow-xl">
+            <h3 className="text-xl font-bold mb-4 text-center">Promote Pawn</h3>
+            <p className="text-sm text-gray-600 mb-4 text-center">Choose a piece to promote your pawn to:</p>
+            <div className="grid grid-cols-4 gap-4">
+              {['queen', 'rook', 'bishop', 'knight'].map((pieceType) => (
+                <button
+                  key={pieceType}
+                  onClick={() => handlePromotionChoice(pieceType)}
+                  className="w-20 h-20 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors border-2 border-transparent hover:border-blue-500"
+                  title={pieceType.charAt(0).toUpperCase() + pieceType.slice(1)}
+                >
+                  <img 
+                    src={PIECE_IMAGES[playerTeam]?.[pieceType]} 
+                    alt={`${playerTeam} ${pieceType}`}
+                    className="w-16 h-16 object-contain"
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

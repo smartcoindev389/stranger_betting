@@ -55,8 +55,17 @@ export const validateMove = (
       isValid = checkersGame.makeMove(moveData.from, moveData.to, playerTeam);
     } else if (gameType === "chess") {
       const chessGame = game as ChessGame;
-      const moveData = move as { from: { x: number; y: number }; to: { x: number; y: number } };
-      isValid = chessGame.makeMove(moveData.from, moveData.to, playerTeam);
+      const moveData = move as { 
+        from: { x: number; y: number }; 
+        to: { x: number; y: number };
+        promotionType?: string;
+      };
+      isValid = chessGame.makeMove(
+        moveData.from, 
+        moveData.to, 
+        playerTeam,
+        moveData.promotionType
+      );
     }
 
     if (!isValid) {

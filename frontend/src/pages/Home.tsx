@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Circle, Square, Crown, Users, Hash } from 'lucide-react';
 import Header from '../components/Header';
 import { getSocket } from '../utils/socket';
+import { useNotification } from '../contexts/NotificationContext';
 
 interface HomeProps {
   onNavigate: (page: string, data?: { gameType?: string; keyword?: string; roomId?: string }) => void;
@@ -14,6 +15,7 @@ export default function Home({ onNavigate, isConnected, onUserConnect }: HomePro
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
   const [username, setUsername] = useState('');
   const [isUsernameSet, setIsUsernameSet] = useState(false);
+  const { showNotification } = useNotification();
 
   const games = [
     {
@@ -49,7 +51,7 @@ export default function Home({ onNavigate, isConnected, onUserConnect }: HomePro
 
   const handleRandomMatch = (gameType: string) => {
     if (!isUsernameSet) {
-      alert('Please set your username first');
+      showNotification('Please set your username first', 'warning');
       return;
     }
     setSelectedGame(gameType);
@@ -86,7 +88,7 @@ export default function Home({ onNavigate, isConnected, onUserConnect }: HomePro
       
       const handleError = (error: any) => {
         console.error('Error joining room:', error);
-        alert(error.message || 'Failed to join room');
+        showNotification(error.message || 'Failed to join room', 'error');
         socket.off('game_start', handleGameStart);
         socket.off('waiting_for_player', handleWaiting);
         socket.off('error', handleError);
@@ -100,13 +102,13 @@ export default function Home({ onNavigate, isConnected, onUserConnect }: HomePro
       socket.emit('join_random', { gameType: backendGameType });
     } else {
       console.error('Socket is null!');
-      alert('Not connected to server. Please refresh the page.');
+      showNotification('Not connected to server. Please refresh the page.', 'error');
     }
   };
 
   const handleJoinByKeyword = () => {
     if (!isUsernameSet) {
-      alert('Please set your username first');
+      showNotification('Please set your username first', 'warning');
       return;
     }
     if (keyword.trim() && selectedGame) {
@@ -131,7 +133,7 @@ export default function Home({ onNavigate, isConnected, onUserConnect }: HomePro
         
         const handleError = (error: any) => {
           console.error('Error joining room:', error);
-          alert(error.message || 'Failed to join room');
+          showNotification(error.message || 'Failed to join room', 'error');
           socket.off('game_start', handleGameStart);
           socket.off('waiting_for_player', handleWaiting);
           socket.off('error', handleError);
