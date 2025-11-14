@@ -1,6 +1,21 @@
 import { Server, Socket } from "socket.io";
 import { v4 as uuidv4 } from "uuid";
 import { query } from "../db/connection.js";
+
+// WebRTC types
+type RTCSdpType = "offer" | "answer" | "pranswer" | "rollback";
+
+type RTCSessionDescriptionInit = {
+  type: RTCSdpType;
+  sdp?: string;
+};
+
+type RTCIceCandidateInit = {
+  candidate?: string;
+  sdpMLineIndex?: number | null;
+  sdpMid?: string | null;
+  usernameFragment?: string | null;
+};
 import {
   findWaitingRoom,
   createRoom,
@@ -29,14 +44,14 @@ const rematchRequests = new Map<string, Set<string>>(); // roomId -> Set of user
 
 export const setupSocketHandlers = (io: Server): void => {
   io.on("connection", (socket: Socket) => {
-    logger.info("User connected:", socket.id);
+    logger.info({ socketId: socket.id }, "User connected");
     totalRequestsCounter.inc();
     activeWSConnectionsGauge.inc();
 
     // Handle user connection
     socket.on("user_connect", async (data: { username: string }) => {
       try {
-        logger.info("user_connect received:", data);
+        logger.info({ data }, "user_connect received");
         const { username } = data;
 
         // Create or get user
@@ -48,14 +63,14 @@ export const setupSocketHandlers = (io: Server): void => {
 
         if (existingUser.length > 0) {
           userId = existingUser[0].id;
-          logger.info("Found existing user:", userId);
+          logger.info({ userId }, "Found existing user");
           await query("UPDATE users SET session_id = ? WHERE id = ?", [
             socket.id,
             userId,
           ]);
         } else {
           userId = uuidv4();
-          logger.info("Creating new user:", userId, "with username:", username);
+          logger.info({ userId, username }, "Creating new user");
           await query(
             "INSERT INTO users (id, username, session_id) VALUES (?, ?, ?)",
             [userId, username || `Player_${socket.id.substring(0, 6)}`, socket.id],
@@ -65,7 +80,7 @@ export const setupSocketHandlers = (io: Server): void => {
         (socket as Socket & { userId: string }).userId = userId;
         socket.emit("connected", { userId, username });
       } catch (error) {
-        logger.error("Error in user_connect:", error);
+        logger.error(error, "Error in user_connect");
         socket.emit("error", { message: "Failed to connect user" });
       }
     });
@@ -230,7 +245,7 @@ export const setupSocketHandlers = (io: Server): void => {
           });
         }
       } catch (error) {
-        logger.error("Error in join_random:", error);
+        logger.error(error, "Error in join_random");
         socket.emit("error", { message: "Failed to join room" });
       }
     });
@@ -302,7 +317,7 @@ export const setupSocketHandlers = (io: Server): void => {
             });
           }
         } catch (error) {
-          logger.error("Error in join_keyword:", error);
+          logger.error(error, "Error in join_keyword");
           socket.emit("error", { message: "Failed to join room" });
         }
       },
@@ -421,7 +436,7 @@ export const setupSocketHandlers = (io: Server): void => {
           });
         }
       } catch (error) {
-        logger.error("Error in player_move:", error);
+        logger.error(error, "Error in player_move");
         socket.emit("error", { message: "Failed to process move" });
       }
     });
@@ -466,7 +481,7 @@ export const setupSocketHandlers = (io: Server): void => {
           timestamp: new Date().toISOString(),
         });
       } catch (error) {
-        logger.error("Error in chat_message:", error);
+        logger.error(error, "Error in chat_message");
         socket.emit("error", { message: "Failed to send message" });
       }
     });
@@ -555,7 +570,7 @@ export const setupSocketHandlers = (io: Server): void => {
           socket.emit("rematch_pending", { roomId });
         }
       } catch (error) {
-        logger.error("Error in rematch_request:", error);
+        logger.error(error, "Error in rematch_request");
         socket.emit("error", { message: "Failed to request rematch" });
       }
     });
@@ -594,13 +609,13 @@ export const setupSocketHandlers = (io: Server): void => {
           });
         }
       } catch (error) {
-        logger.error("Error in leave_room:", error);
+        logger.error(error, "Error in leave_room");
       }
     });
 
     // Handle disconnect
     socket.on("disconnect", async () => {
-      logger.info("User disconnected:", socket.id);
+      logger.info({ socketId: socket.id }, "User disconnected");
       activeWSConnectionsGauge.dec();
 
       const socketWithUserId = socket as Socket & { userId?: string };

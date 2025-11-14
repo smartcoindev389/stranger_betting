@@ -57,7 +57,7 @@ app.get("/admin/rooms", async (req, res) => {
     );
     res.json(rooms);
   } catch (error) {
-    logger.error("Error fetching rooms:", error);
+    logger.error(error, "Error fetching rooms");
     res.status(500).json({ error: "Failed to fetch rooms" });
   }
 });
@@ -76,7 +76,7 @@ app.get("/admin/users", async (req, res) => {
     );
     res.json(users);
   } catch (error) {
-    logger.error("Error fetching users:", error);
+    logger.error(error, "Error fetching users");
     res.status(500).json({ error: "Failed to fetch users" });
   }
 });
@@ -96,7 +96,7 @@ setupSocketHandlers(io);
       logger.info(`Environment: ${config.nodeEnv}`);
     });
   } catch (error) {
-    logger.error("Failed to connect to database:", error);
+    logger.error(error, "Failed to connect to database");
     logger.error("Please check your database configuration in .env file");
     process.exit(1);
   }
