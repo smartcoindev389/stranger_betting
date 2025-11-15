@@ -12,7 +12,7 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "dev": "nodemon --exec node --loader ts-node/esm src/index.ts",
+    "dev": "nodemon --exec tsx src/index.ts",
     "build": "tsc --build",
     "start": "node dist/index.js",
     "lint": "eslint --fix .",
@@ -49,6 +49,7 @@
     "nodemon": "^3.1.9",
     "prettier": "^3.4.1",
     "ts-node": "^10.9.2",
+    "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.18.1"
   }
