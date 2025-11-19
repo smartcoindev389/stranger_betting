@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import { createServer } from "node:http";
 import { Server } from "socket.io";
@@ -136,6 +137,12 @@ setupSocketHandlers(io);
     httpServer.listen(config.port, () => {
       logger.info(`Server running on port ${config.port}`);
       logger.info(`Environment: ${config.nodeEnv}`);
+      if (config.mercadoPago.accessToken) {
+        logger.info("Mercado Pago Pix integration: ENABLED");
+      } else {
+        logger.warn("Mercado Pago Pix integration: DISABLED (MERCADO_PAGO_ACCESS_TOKEN not set)");
+        logger.warn("Please set MERCADO_PAGO_ACCESS_TOKEN in .env file to enable Pix payments");
+      }
     });
   } catch (error) {
     logger.error(error, "Failed to connect to database");

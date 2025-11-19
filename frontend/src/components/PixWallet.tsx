@@ -36,6 +36,12 @@ export default function PixWallet({ userId, onClose }: PixWalletProps) {
   const [transactions, setTransactions] = useState<PixTransaction[]>([]);
   const [copied, setCopied] = useState<boolean>(false);
   const [pixEnabled, setPixEnabled] = useState<boolean>(false);
+  // Payer information for deposits
+  const [payerEmail, setPayerEmail] = useState<string>('');
+  const [payerFirstName, setPayerFirstName] = useState<string>('');
+  const [payerLastName, setPayerLastName] = useState<string>('');
+  const [payerIdentificationType, setPayerIdentificationType] = useState<string>('CPF');
+  const [payerIdentificationNumber, setPayerIdentificationNumber] = useState<string>('');
 
   const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -49,18 +55,10 @@ export default function PixWallet({ userId, onClose }: PixWalletProps) {
   }, [userId]);
 
   const checkPixStatus = async () => {
-    try {
-      const { authenticatedFetch } = await import('../utils/api');
-      // Try to make a test request to see if Pix is enabled
-      const response = await authenticatedFetch(`${API_BASE}/api/pix/deposit/request`, {
-        method: 'POST',
-        body: JSON.stringify({ amount: 1 }),
-      });
-      const data = await response.json();
-      setPixEnabled(!data.enabled === false); // If enabled is false, Pix is disabled
-    } catch (error) {
-      setPixEnabled(false);
-    }
+    // Pix is enabled if Mercado Pago token is configured
+    // The actual status will be determined when making a deposit request
+    // For now, assume it's enabled - the API will return 503 if not configured
+    setPixEnabled(true);
   };
 
   const fetchBalance = async () => {
@@ -118,18 +116,40 @@ export default function PixWallet({ userId, onClose }: PixWalletProps) {
       return;
     }
 
+    // Validate payer information
+    if (!payerEmail || !payerFirstName || !payerLastName) {
+      showNotification('Please fill in all payer information (email, first name, last name)', 'error');
+      return;
+    }
+
+    if (!payerIdentificationNumber) {
+      showNotification('Please enter your identification number (CPF or CNPJ)', 'error');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/pix/deposit/request`, {
+      const { authenticatedFetch } = await import('../utils/api');
+      const response = await authenticatedFetch(`${API_BASE}/api/pix/deposit/request`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({
+          amount,
+          payer: {
+            email: payerEmail,
+            firstName: payerFirstName,
+            lastName: payerLastName,
+            identification: {
+              type: payerIdentificationType,
+              number: payerIdentificationNumber.replace(/\D/g, ''), // Remove non-digits
+            },
+          },
+        }),
       });
 
       const data = await response.json();
 
       if (response.status === 503) {
-        showNotification('Pix integration is not available yet', 'info');
+        showNotification('Pix integration is not configured', 'info');
         setIsLoading(false);
         return;
       }
@@ -159,8 +179,9 @@ export default function PixWallet({ userId, onClose }: PixWalletProps) {
     if (!userId) return;
     const interval = setInterval(async () => {
       try {
-        const response = await fetch(
-          `${API_BASE}/api/pix/deposit/status/${txId}?userId=${userId}`,
+        const { authenticatedFetch } = await import('../utils/api');
+        const response = await authenticatedFetch(
+          `${API_BASE}/api/pix/deposit/status/${txId}`,
         );
         if (response.ok) {
           const data = await response.json();
@@ -170,6 +191,11 @@ export default function PixWallet({ userId, onClose }: PixWalletProps) {
             setQrCode(null);
             setQrCodeBase64(null);
             setTransactionId(null);
+            setDepositAmount('');
+            setPayerEmail('');
+            setPayerFirstName('');
+            setPayerLastName('');
+            setPayerIdentificationNumber('');
             fetchBalance();
             fetchTransactions();
           } else if (data.status === 'failed') {
@@ -485,10 +511,95 @@ export default function PixWallet({ userId, onClose }: PixWalletProps) {
                 />
                 <p className="text-xs text-gray-500 mt-1">Minimum: R$ 1.00</p>
               </div>
+
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Payer Information</h3>
+                
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      First Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={payerFirstName}
+                      onChange={(e) => setPayerFirstName(e.target.value)}
+                      placeholder="John"
+                      className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Last Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={payerLastName}
+                      onChange={(e) => setPayerLastName(e.target.value)}
+                      placeholder="Doe"
+                      className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    value={payerEmail}
+                    onChange={(e) => setPayerEmail(e.target.value)}
+                    placeholder="john.doe@example.com"
+                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Identification Type *
+                    </label>
+                    <select
+                      value={payerIdentificationType}
+                      onChange={(e) => setPayerIdentificationType(e.target.value)}
+                      className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                    >
+                      <option value="CPF">CPF</option>
+                      <option value="CNPJ">CNPJ</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {payerIdentificationType} Number *
+                    </label>
+                    <input
+                      type="text"
+                      value={payerIdentificationNumber}
+                      onChange={(e) => setPayerIdentificationNumber(e.target.value)}
+                      placeholder={payerIdentificationType === 'CPF' ? '000.000.000-00' : '00.000.000/0000-00'}
+                      className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
               <button
                 onClick={handleDeposit}
-                disabled={isLoading || !depositAmount || parseFloat(depositAmount) < 1}
-                className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-cyan-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                disabled={
+                  isLoading ||
+                  !depositAmount ||
+                  parseFloat(depositAmount) < 1 ||
+                  !payerEmail ||
+                  !payerFirstName ||
+                  !payerLastName ||
+                  !payerIdentificationNumber
+                }
+                className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-cyan-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
               >
                 <QrCode className="w-5 h-5" />
                 {isLoading ? 'Generating QR Code...' : 'Generate Pix QR Code'}

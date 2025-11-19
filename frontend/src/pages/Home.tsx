@@ -10,9 +10,10 @@ interface HomeProps {
   onUserConnect: (username: string) => void;
   username?: string;
   onLogout?: () => void;
+  userId?: string;
 }
 
-export default function Home({ onNavigate, isConnected, onUserConnect, username: propUsername, onLogout }: HomeProps) {
+export default function Home({ onNavigate, isConnected, onUserConnect, username: propUsername, onLogout, userId }: HomeProps) {
   const [keyword, setKeyword] = useState('');
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
   const [username, setUsername] = useState('');
@@ -153,7 +154,7 @@ export default function Home({ onNavigate, isConnected, onUserConnect, username:
   if (!isUsernameSet) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
-        <Header isConnected={isConnected} username={propUsername || username} onLogout={onLogout} />
+        <Header isConnected={isConnected} username={propUsername || username} onLogout={onLogout} userId={userId} />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="max-w-md mx-auto mt-20">
             <div className="bg-white rounded-2xl shadow-lg p-8">
@@ -189,7 +190,7 @@ export default function Home({ onNavigate, isConnected, onUserConnect, username:
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
-      <Header isConnected={isConnected} />
+      <Header isConnected={isConnected} userId={userId} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-16 animate-fade-in">

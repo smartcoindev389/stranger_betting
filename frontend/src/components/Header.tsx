@@ -1,18 +1,25 @@
-import { Gamepad2, LogOut } from 'lucide-react';
+import { useState } from 'react';
+import { Gamepad2, LogOut, Wallet } from 'lucide-react';
 import { clearAuth } from '../utils/api';
 import { disconnectSocket } from '../utils/socket';
 import { useDialog } from '../hooks/useDialog';
+import PixWallet from './PixWallet';
 
 interface HeaderProps {
   username?: string;
   isConnected: boolean;
   onLogout?: () => void;
+  userId?: string;
 }
 
-export default function Header({ username, isConnected, onLogout }: HeaderProps) {
+export default function Header({ username, isConnected, onLogout, userId }: HeaderProps) {
   // Get username from localStorage if not provided
   const displayUsername = username || localStorage.getItem('username') || 'Guest';
   const { showConfirm, DialogComponent } = useDialog();
+  const [showWallet, setShowWallet] = useState(false);
+  
+  // Get userId from localStorage if not provided
+  const currentUserId = userId || localStorage.getItem('userId') || '';
 
   const handleLogout = async () => {
     const confirmed = await showConfirm('Are you sure you want to logout?', {
@@ -59,21 +66,38 @@ export default function Header({ username, isConnected, onLogout }: HeaderProps)
                 {isConnected ? 'Connected' : 'Offline'}
               </span>
             </div>
-              {displayUsername !== 'Guest' && (
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Logout"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span className="hidden sm:inline">Logout</span>
-                </button>
-              )}
+            {displayUsername !== 'Guest' && currentUserId && (
+              <button
+                onClick={() => setShowWallet(true)}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                title="Pix Wallet"
+              >
+                <Wallet className="w-4 h-4" />
+                <span className="hidden sm:inline">Wallet</span>
+              </button>
+            )}
+            {displayUsername !== 'Guest' && (
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                title="Logout"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
     </header>
       {DialogComponent}
+      {showWallet && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="relative max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <PixWallet userId={currentUserId} onClose={() => setShowWallet(false)} />
+          </div>
+        </div>
+      )}
     </>
   );
 }

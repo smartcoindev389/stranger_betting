@@ -12,9 +12,10 @@ interface Room {
 interface LobbyProps {
   onNavigate: (page: string, data?: { gameType?: string; roomId?: string }) => void;
   isConnected: boolean;
+  userId?: string;
 }
 
-export default function Lobby({ onNavigate, isConnected }: LobbyProps) {
+export default function Lobby({ onNavigate, isConnected, userId }: LobbyProps) {
   const activeRooms: Room[] = [
     {
       id: '1',
@@ -70,7 +71,7 @@ export default function Lobby({ onNavigate, isConnected }: LobbyProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
-      <Header isConnected={isConnected} username={localStorage.getItem('username') || undefined} />
+      <Header isConnected={isConnected} username={localStorage.getItem('username') || undefined} userId={userId} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="mb-8">

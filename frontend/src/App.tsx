@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Home from './pages/Home';
 import GameRoom from './pages/GameRoom';
 import Lobby from './pages/Lobby';
@@ -117,15 +117,15 @@ function AppContent() {
     // };
   }, []);
 
-  const handleNavigate = useCallback((page: string, data?: NavigationData | { gameType?: string; roomId?: string; keyword?: string }) => {
+  const handleNavigate = (page: string, data?: NavigationData) => {
     setCurrentPage(page as Page);
     if (data?.gameType) {
-      setCurrentGameType(data.gameType as 'tic-tac-toe' | 'checkers' | 'chess');
+      setCurrentGameType(data.gameType);
     }
     if (data?.roomId) {
       setCurrentRoomId(data.roomId);
     }
-  }, []);
+  };
 
   const handleAuthSuccess = (authUserId: string, authUsername: string) => {
     setUserId(authUserId);
@@ -149,41 +149,41 @@ function AppContent() {
     connectUser(userName);
   };
 
-  const handleSendMessage = useCallback((message: string) => {
+  const handleSendMessage = (message: string) => {
     console.log('App: Sending message to room:', currentRoomId, 'Message:', message);
     sendChatMessage(currentRoomId, message);
-  }, [currentRoomId]);
+  };
 
-  const handleStartVideo = useCallback(async () => {
+  const handleStartVideo = async () => {
     try {
       await startVideo();
       console.log('Video started successfully');
     } catch (error) {
       console.error('Failed to start video:', error);
     }
-  }, []);
+  };
 
-  const handleEndCall = useCallback(() => {
+  const handleEndCall = () => {
     closePeerConnection();
     console.log('Call ended');
-  }, []);
+  };
 
-  const handleRematch = useCallback(() => {
+  const handleRematch = () => {
     const socket = getSocket();
     if (socket) {
       socket.emit('rematch_request', { roomId: currentRoomId });
     }
     console.log('Rematch requested');
-  }, [currentRoomId]);
+  };
 
-  const handleExitRoom = useCallback(() => {
+  const handleExitRoom = () => {
     const socket = getSocket();
     if (socket) {
       socket.emit('leave_room', { roomId: currentRoomId });
     }
     setCurrentPage('home');
     console.log('Exited room');
-  }, [currentRoomId]);
+  };
 
   const handleLogout = () => {
     // Clear auth data and disconnect socket
@@ -209,6 +209,7 @@ function AppContent() {
           onUserConnect={handleUserConnect}
           username={username}
           onLogout={handleLogout}
+          userId={userId}
         />
       )}
       {currentPage === 'game-room' && userId && (
@@ -227,7 +228,7 @@ function AppContent() {
         />
       )}
       {currentPage === 'lobby' && userId && (
-        <Lobby onNavigate={handleNavigate} isConnected={isConnected} />
+        <Lobby onNavigate={handleNavigate} isConnected={isConnected} userId={userId} />
       )}
       {currentPage === 'admin' && (
         <AdminPanel />
