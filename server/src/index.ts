@@ -1,19 +1,3 @@
-// Load environment variables from .env file FIRST, before any other imports
-import dotenv from "dotenv";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
-
-// Get the directory of the current file (dist folder when compiled)
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Load .env from the server root (go up from dist to server root)
-const envPath = join(__dirname, "..", ".env");
-dotenv.config({ path: envPath });
-
-// Also try loading from process.cwd() as fallback (for development)
-dotenv.config();
-
 import express from "express";
 import { createServer } from "node:http";
 import { Server } from "socket.io";
@@ -31,7 +15,6 @@ import {
 import authRoutes from "./routes/auth.js";
 import pixRoutes from "./routes/pix.js";
 import adminRoutes from "./routes/admin.js";
-import { setSocketInstance } from "./lib/socket-manager.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -143,9 +126,6 @@ app.get("/admin/users", async (req, res) => {
 // Setup Socket.IO handlers
 setupSocketHandlers(io);
 
-// Export socket instance for use in routes
-setSocketInstance(io);
-
 // Initialize database connection and start server
 (async () => {
   try {
@@ -156,19 +136,6 @@ setSocketInstance(io);
     httpServer.listen(config.port, () => {
       logger.info(`Server running on port ${config.port}`);
       logger.info(`Environment: ${config.nodeEnv}`);
-      logger.info(`Working directory: ${process.cwd()}`);
-      logger.info(`.env path attempted: ${envPath}`);
-      
-      // Log Pix configuration status (without exposing the token)
-      const token = config.mercadoPago.accessToken;
-      if (token && token.trim() !== "") {
-        logger.info("✓ Mercado Pago Pix integration is configured");
-        logger.info(`  Token length: ${token.length} characters`);
-      } else {
-        logger.warn("⚠ Mercado Pago access token not found - Pix integration disabled");
-        logger.warn("  Please set MERCADO_PAGO_ACCESS_TOKEN in your .env file");
-        logger.warn(`  process.env.MERCADO_PAGO_ACCESS_TOKEN: ${process.env.MERCADO_PAGO_ACCESS_TOKEN ? "exists (" + process.env.MERCADO_PAGO_ACCESS_TOKEN.length + " chars)" : "missing"}`);
-      }
     });
   } catch (error) {
     logger.error(error, "Failed to connect to database");

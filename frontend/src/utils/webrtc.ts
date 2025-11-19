@@ -92,6 +92,60 @@ export class RTCManager extends EventEmitter {
   }
 
   /**
+   * Removes all tracks from peer connection
+   */
+  removeTracks() {
+    const senders = this.pc.getSenders();
+    senders.forEach((sender) => {
+      if (sender.track) {
+        this.pc.removeTrack(sender);
+      }
+    });
+  }
+
+  /**
+   * Replaces tracks in peer connection with new stream tracks
+   */
+  replaceTracks(stream: MediaStream) {
+    const senders = this.pc.getSenders();
+    const tracks = stream.getTracks();
+    
+    // Match tracks by kind (video/audio) and replace
+    tracks.forEach((track) => {
+      const sender = senders.find((s) => s.track && s.track.kind === track.kind);
+      if (sender) {
+        // Replace existing track of the same kind
+        sender.replaceTrack(track).catch((error) => {
+          console.error(`Error replacing ${track.kind} track:`, error);
+        });
+      } else {
+        // No sender for this track kind, add it
+        this.pc.addTrack(track, stream);
+      }
+    });
+    
+    // Remove any senders that don't have a corresponding track in the new stream
+    senders.forEach((sender) => {
+      if (sender.track) {
+        const hasCorrespondingTrack = tracks.some((track) => track.kind === sender.track!.kind);
+        if (!hasCorrespondingTrack) {
+          this.pc.removeTrack(sender);
+        }
+      }
+    });
+  }
+
+  /**
+   * Renegotiates the peer connection (creates new offer)
+   */
+  async renegotiate(): Promise<RTCSessionDescriptionInit> {
+    const offer = await this.pc.createOffer();
+    await this.pc.setLocalDescription(offer);
+    this.localOffer = offer;
+    return offer;
+  }
+
+  /**
    * Creates and returns an offer for peer connection
    */
   async createOffer(): Promise<RTCSessionDescriptionInit> {
@@ -102,19 +156,27 @@ export class RTCManager extends EventEmitter {
 
   /**
    * Sets remote offer and creates answer
+   * Handles both initial connection and renegotiation
    */
   async createAnswer(offer: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> {
+    // Set the remote description (this will replace any existing one for renegotiation)
     await this.pc.setRemoteDescription(offer);
+    
+    // Create and set the answer
     const answer = await this.pc.createAnswer();
     await this.pc.setLocalDescription(answer);
+    
     return answer;
   }
 
   /**
    * Sets remote answer to finalize connection
+   * Handles both initial connection and renegotiation
    */
   async setAnswer(answer: RTCSessionDescriptionInit) {
-    if (this.localOffer) {
+    // Only set local description if it hasn't been set yet (for initial connection)
+    // For renegotiation, the local description is already set by renegotiate()
+    if (this.localOffer && !this.pc.localDescription) {
       await this.pc.setLocalDescription(this.localOffer);
     }
     await this.pc.setRemoteDescription(answer);
