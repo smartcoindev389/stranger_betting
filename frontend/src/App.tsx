@@ -1,18 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Home from './pages/Home';
 import GameRoom from './pages/GameRoom';
 import Lobby from './pages/Lobby';
 import Login from './pages/Login';
 import AdminPanel from './pages/AdminPanel';
-import Deposit from './pages/Deposit';
-import Withdraw from './pages/Withdraw';
 import { connectSocket, disconnectSocket, sendChatMessage, getSocket, connectUser, setNotificationHandler } from './utils/socket';
 import { startVideo, closePeerConnection } from './utils/webrtc';
 import { NotificationProvider, useNotification } from './contexts/NotificationContext';
 import NotificationContainer from './components/Notification';
 import { clearAuth } from './utils/api';
 
-type Page = 'home' | 'game-room' | 'lobby' | 'login' | 'admin' | 'deposit' | 'withdraw';
+type Page = 'home' | 'game-room' | 'lobby' | 'login' | 'admin';
 
 interface NavigationData {
   gameType?: 'tic-tac-toe' | 'checkers' | 'chess';
@@ -119,15 +117,15 @@ function AppContent() {
     // };
   }, []);
 
-  const handleNavigate = (page: string, data?: NavigationData) => {
+  const handleNavigate = useCallback((page: string, data?: NavigationData | { gameType?: string; roomId?: string; keyword?: string }) => {
     setCurrentPage(page as Page);
     if (data?.gameType) {
-      setCurrentGameType(data.gameType);
+      setCurrentGameType(data.gameType as 'tic-tac-toe' | 'checkers' | 'chess');
     }
     if (data?.roomId) {
       setCurrentRoomId(data.roomId);
     }
-  };
+  }, []);
 
   const handleAuthSuccess = (authUserId: string, authUsername: string) => {
     setUserId(authUserId);
@@ -151,41 +149,41 @@ function AppContent() {
     connectUser(userName);
   };
 
-  const handleSendMessage = (message: string) => {
+  const handleSendMessage = useCallback((message: string) => {
     console.log('App: Sending message to room:', currentRoomId, 'Message:', message);
     sendChatMessage(currentRoomId, message);
-  };
+  }, [currentRoomId]);
 
-  const handleStartVideo = async () => {
+  const handleStartVideo = useCallback(async () => {
     try {
       await startVideo();
       console.log('Video started successfully');
     } catch (error) {
       console.error('Failed to start video:', error);
     }
-  };
+  }, []);
 
-  const handleEndCall = () => {
+  const handleEndCall = useCallback(() => {
     closePeerConnection();
     console.log('Call ended');
-  };
+  }, []);
 
-  const handleRematch = () => {
+  const handleRematch = useCallback(() => {
     const socket = getSocket();
     if (socket) {
       socket.emit('rematch_request', { roomId: currentRoomId });
     }
     console.log('Rematch requested');
-  };
+  }, [currentRoomId]);
 
-  const handleExitRoom = () => {
+  const handleExitRoom = useCallback(() => {
     const socket = getSocket();
     if (socket) {
       socket.emit('leave_room', { roomId: currentRoomId });
     }
     setCurrentPage('home');
     console.log('Exited room');
-  };
+  }, [currentRoomId]);
 
   const handleLogout = () => {
     // Clear auth data and disconnect socket
@@ -234,22 +232,8 @@ function AppContent() {
       {currentPage === 'admin' && (
         <AdminPanel />
       )}
-      {currentPage === 'deposit' && userId && (
-        <Deposit
-          userId={userId}
-          onNavigate={handleNavigate}
-          isConnected={isConnected}
-        />
-      )}
-      {currentPage === 'withdraw' && userId && (
-        <Withdraw
-          userId={userId}
-          onNavigate={handleNavigate}
-          isConnected={isConnected}
-        />
-      )}
       {/* Fallback: Always show login if no page matches */}
-      {currentPage !== 'login' && currentPage !== 'home' && currentPage !== 'game-room' && currentPage !== 'lobby' && currentPage !== 'admin' && currentPage !== 'deposit' && currentPage !== 'withdraw' && (
+      {currentPage !== 'login' && currentPage !== 'home' && currentPage !== 'game-room' && currentPage !== 'lobby' && currentPage !== 'admin' && (
         <Login onAuthSuccess={handleAuthSuccess} />
       )}
     </>

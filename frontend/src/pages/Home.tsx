@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Circle, Square, Crown, Users, Hash, ArrowDownCircle, ArrowUpCircle, Wallet } from 'lucide-react';
+import { Circle, Square, Crown, Users, Hash } from 'lucide-react';
 import Header from '../components/Header';
 import { getSocket, connectSocket } from '../utils/socket';
 import { useNotification } from '../contexts/NotificationContext';
@@ -199,30 +199,6 @@ export default function Home({ onNavigate, isConnected, onUserConnect, username:
           <p className="text-xl text-gray-600">
             Join friends or challenge random opponents in real-time
           </p>
-        </div>
-
-        {/* Wallet Actions */}
-        <div className="grid md:grid-cols-2 gap-6 mb-12 max-w-2xl mx-auto">
-          <button
-            onClick={() => onNavigate('deposit')}
-            className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-2xl shadow-lg p-6 hover:from-blue-700 hover:to-cyan-600 transition-all duration-300 transform hover:scale-105 hover:shadow-xl flex items-center justify-center gap-4"
-          >
-            <ArrowDownCircle className="w-8 h-8" />
-            <div className="text-left">
-              <h3 className="text-xl font-bold">Deposit</h3>
-              <p className="text-sm opacity-90">Add funds to your account</p>
-            </div>
-          </button>
-          <button
-            onClick={() => onNavigate('withdraw')}
-            className="bg-gradient-to-r from-green-600 to-emerald-500 text-white rounded-2xl shadow-lg p-6 hover:from-green-700 hover:to-emerald-600 transition-all duration-300 transform hover:scale-105 hover:shadow-xl flex items-center justify-center gap-4"
-          >
-            <ArrowUpCircle className="w-8 h-8" />
-            <div className="text-left">
-              <h3 className="text-xl font-bold">Withdraw</h3>
-              <p className="text-sm opacity-90">Withdraw funds via Pix</p>
-            </div>
-          </button>
         </div>
 
         <div className="grid md:grid-cols-3 gap-6 mb-12">
