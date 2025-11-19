@@ -57,12 +57,7 @@ export default function PixWallet({ userId, onClose }: PixWalletProps) {
         body: JSON.stringify({ amount: 1 }),
       });
       const data = await response.json();
-      // If we get a 503 or error about configuration, Pix is disabled
-      if (response.status === 503 || data.error) {
-        setPixEnabled(false);
-      } else {
-        setPixEnabled(true);
-      }
+      setPixEnabled(!data.enabled === false); // If enabled is false, Pix is disabled
     } catch (error) {
       setPixEnabled(false);
     }
@@ -140,7 +135,7 @@ export default function PixWallet({ userId, onClose }: PixWalletProps) {
       }
 
       if (!response.ok) {
-        showNotification(data.error_message || data.error || 'Failed to create deposit request', 'error');
+        showNotification(data.error || 'Failed to create deposit request', 'error');
         setIsLoading(false);
         return;
       }
@@ -229,7 +224,7 @@ export default function PixWallet({ userId, onClose }: PixWalletProps) {
       }
 
       if (!response.ok) {
-        showNotification(data.error_message || data.error || 'Failed to create withdrawal request', 'error');
+        showNotification(data.error || 'Failed to create withdrawal request', 'error');
         setIsLoading(false);
         return;
       }

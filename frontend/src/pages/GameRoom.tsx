@@ -67,6 +67,17 @@ export default function GameRoom({
   const listenersSetupRef = useRef<boolean>(false); // Track if listeners are already set up
   const currentRoomIdRef = useRef<string>(''); // Track current room to prevent duplicate setup
   const processedGameStartRef = useRef<Set<string>>(new Set()); // Track processed game_start events to prevent duplicates
+  // Use refs for callback functions to prevent unnecessary re-renders
+  const showNotificationRef = useRef(showNotification);
+  const onNavigateRef = useRef(onNavigate);
+  const onExitRoomRef = useRef(onExitRoom);
+  
+  // Update refs when callbacks change (but don't trigger re-renders)
+  useEffect(() => {
+    showNotificationRef.current = showNotification;
+    onNavigateRef.current = onNavigate;
+    onExitRoomRef.current = onExitRoom;
+  }, [showNotification, onNavigate, onExitRoom]);
 
   // Determine player team and turn
   const getPlayerTeam = (): string => {
@@ -138,7 +149,7 @@ export default function GameRoom({
     const handleError = (error: any) => {
       console.error('Socket error:', error);
       if (error.message) {
-        showNotification(`Error: ${error.message}`, 'error');
+        showNotificationRef.current(`Error: ${error.message}`, 'error');
       }
     };
     
@@ -304,17 +315,17 @@ export default function GameRoom({
       
       // Show notification about game result
       if (data.isDraw) {
-        showNotification('Game ended in a draw!', 'info');
+        showNotificationRef.current('Game ended in a draw!', 'info');
       } else if (data.winner || data.winningTeam) {
         const winnerTeam = data.winner || data.winningTeam;
         const playerTeam = getPlayerTeam();
         if (winnerTeam === playerTeam) {
-          showNotification('🎉 Congratulations! You won the game!', 'success');
+          showNotificationRef.current('🎉 Congratulations! You won the game!', 'success');
         } else {
           // Find opponent username (the one who is not the current user)
           const opponent = players.find((p: any) => p.id !== userId);
           const opponentUsername = opponent?.username || 'Opponent';
-          showNotification(`${opponentUsername} won the game!`, 'info');
+          showNotificationRef.current(`${opponentUsername} won the game!`, 'info');
         }
       }
     };
@@ -380,7 +391,7 @@ export default function GameRoom({
       // Find opponent username
       const opponent = players.find((p: any) => p.id !== userId && p.id !== data.userId);
       const opponentUsername = opponent?.username || 'Opponent';
-      showNotification(`${opponentUsername} left the game`, 'info');
+      showNotificationRef.current(`${opponentUsername} left the game`, 'info');
       setIsWaiting(true);
     };
 
@@ -411,11 +422,11 @@ export default function GameRoom({
 
     // Listen for account banned
     const handleAccountBanned = (data: { message: string }) => {
-      showNotification(data.message || 'Your account has been banned', 'error');
+      showNotificationRef.current(data.message || 'Your account has been banned', 'error');
       // Redirect to login after a delay
       setTimeout(() => {
-        onExitRoom();
-        onNavigate('login');
+        onExitRoomRef.current();
+        onNavigateRef.current('login');
       }, 3000);
     };
 
@@ -456,7 +467,7 @@ export default function GameRoom({
       socket.off('connected', handleConnected);
       socket.off('error', handleError);
     };
-  }, [roomId, localRoomId, userId, gameType, isConnected, propUserId, showNotification, onNavigate, onExitRoom]);
+  }, [roomId, localRoomId, userId, gameType, isConnected, propUserId]); // Removed function dependencies to prevent unnecessary re-renders
 
   const handleSendMessage = (text: string) => {
     console.log('Sending chat message:', text);

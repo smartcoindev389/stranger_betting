@@ -29,9 +29,17 @@ export default function VideoPanel({
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const rtcManagerRef = useRef<RTCManager | null>(null);
   const socketRef = useRef(getSocket());
+  // Track previous players to prevent unnecessary re-renders
+  const playersRef = useRef(players);
+  
+  // Create stable key from players (only changes when player IDs change, not array reference)
+  const playersKey = players?.map(p => p.id).sort().join(',') || '';
 
   // Initialize WebRTC connection when both players are present
   useEffect(() => {
+    // Update ref with current players
+    playersRef.current = players;
+    
     if (!roomId || !players || players.length < 2 || !currentUserId) {
       return;
     }
@@ -51,6 +59,7 @@ export default function VideoPanel({
         const localStream = getLocalStream();
         
         if (!rtcManagerRef.current) {
+          // Create new peer connection
           rtcManagerRef.current = new RTCManager();
           
           if (localStream) {
@@ -72,10 +81,16 @@ export default function VideoPanel({
               candidate: candidate.toJSON(),
             });
           });
+        } else {
+          // Peer connection exists - update tracks if needed (for renegotiation)
+          if (localStream) {
+            rtcManagerRef.current.replaceTracks(localStream);
+          }
         }
 
         const answer = await rtcManagerRef.current.createAnswer(data.offer);
         socket.emit('webrtc_answer', { answer });
+        setIsConnecting(false);
       } catch (error) {
         console.error('Error handling WebRTC offer:', error);
         setIsConnecting(false);
@@ -121,33 +136,30 @@ export default function VideoPanel({
       socket.off('webrtc_answer', handleWebRTCAnswer);
       socket.off('webrtc_ice_candidate', handleICECandidate);
     };
-  }, [roomId, players, currentUserId]);
+  }, [roomId, playersKey, currentUserId]); // Use stable key instead of players array reference
 
   // Update local video when stream is available
   useEffect(() => {
-    if (!isVideoOn) {
-      // Clear video when turned off
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = null;
-      }
-      return;
-    }
-
-    const updateLocalVideo = () => {
+    const updateLocalVideo = async () => {
       const localStream = getLocalStream();
       if (localVideoRef.current && localStream) {
-        // Only update if the stream is different to avoid unnecessary updates
+        // Only update if srcObject is different
         if (localVideoRef.current.srcObject !== localStream) {
           localVideoRef.current.srcObject = localStream;
-          localVideoRef.current.play().catch(console.error);
+          // Ensure video plays after setting stream
+          try {
+            await localVideoRef.current.play();
+          } catch (error) {
+            console.error('Error playing local video:', error);
+          }
         }
       }
     };
 
-    // Update immediately
+    // Update immediately when isVideoOn changes
     updateLocalVideo();
     
-    // Also check periodically in case stream becomes available later
+    // Also set up interval to catch any delayed stream availability
     const interval = setInterval(updateLocalVideo, 500);
 
     return () => clearInterval(interval);
@@ -202,82 +214,91 @@ export default function VideoPanel({
         const stream = await startVideo();
         await onStartVideo();
         
-        // Set video on state immediately so the video element is rendered
-        setIsVideoOn(true);
-        
-        // Use double requestAnimationFrame to ensure DOM is fully updated before assigning stream
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            const localStream = getLocalStream();
-            if (localVideoRef.current && localStream) {
-              localVideoRef.current.srcObject = localStream;
-              localVideoRef.current.play().catch(console.error);
-            } else {
-              // Fallback: try again after a short delay if element not ready
-              setTimeout(() => {
-                const localStream = getLocalStream();
-                if (localVideoRef.current && localStream) {
-                  localVideoRef.current.srcObject = localStream;
-                  localVideoRef.current.play().catch(console.error);
-                }
-              }, 100);
-            }
-          });
-        });
+        // Set the stream to video element immediately
+        if (localVideoRef.current && stream) {
+          localVideoRef.current.srcObject = stream;
+          // Ensure video plays
+          await localVideoRef.current.play().catch(console.error);
+          setIsVideoOn(true);
+        }
 
-        // Initialize WebRTC if both players are present
+        // Initialize or update WebRTC if both players are present
         if (roomId && players && players.length >= 2 && currentUserId) {
           const socket = socketRef.current;
-          if (socket && !rtcManagerRef.current) {
-            setIsConnecting(true);
+          if (socket) {
             const localStream = getLocalStream();
             
-            rtcManagerRef.current = new RTCManager();
-            if (localStream) {
-              rtcManagerRef.current.addTracks(localStream);
-            }
-
-            // Handle remote track
-            rtcManagerRef.current.on('track', (remoteStream: MediaStream) => {
-              if (remoteVideoRef.current) {
-                remoteVideoRef.current.srcObject = remoteStream;
-                setHasRemoteVideo(true);
-                remoteVideoRef.current.play().catch(console.error);
+            if (!rtcManagerRef.current) {
+              // Create new peer connection
+              setIsConnecting(true);
+              rtcManagerRef.current = new RTCManager();
+              if (localStream) {
+                rtcManagerRef.current.addTracks(localStream);
               }
-            });
 
-            // Handle ICE candidates
-            rtcManagerRef.current.on('icecandidate', (candidate: RTCIceCandidate) => {
-              socket.emit('webrtc_ice_candidate', {
-                candidate: candidate.toJSON(),
+              // Handle remote track
+              rtcManagerRef.current.on('track', (remoteStream: MediaStream) => {
+                if (remoteVideoRef.current) {
+                  remoteVideoRef.current.srcObject = remoteStream;
+                  setHasRemoteVideo(true);
+                  remoteVideoRef.current.play().catch(console.error);
+                }
               });
-            });
 
-            // Create and send offer
-            try {
-              const offer = await rtcManagerRef.current.createOffer();
-              socket.emit('webrtc_offer', { offer });
-            } catch (error) {
-              console.error('Error creating WebRTC offer:', error);
-              setIsConnecting(false);
-              showNotification('Failed to establish video connection', 'error');
+              // Handle ICE candidates
+              rtcManagerRef.current.on('icecandidate', (candidate: RTCIceCandidate) => {
+                socket.emit('webrtc_ice_candidate', {
+                  candidate: candidate.toJSON(),
+                });
+              });
+
+              // Create and send offer
+              try {
+                const offer = await rtcManagerRef.current.createOffer();
+                socket.emit('webrtc_offer', { offer });
+              } catch (error) {
+                console.error('Error creating WebRTC offer:', error);
+                setIsConnecting(false);
+                showNotification('Failed to establish video connection', 'error');
+              }
+            } else {
+              // Peer connection already exists - update tracks and renegotiate
+              if (localStream) {
+                try {
+                  setIsConnecting(true);
+                  // Replace tracks with new stream
+                  rtcManagerRef.current.replaceTracks(localStream);
+                  
+                  // Renegotiate connection
+                  const offer = await rtcManagerRef.current.renegotiate();
+                  socket.emit('webrtc_offer', { offer });
+                } catch (error) {
+                  console.error('Error renegotiating WebRTC connection:', error);
+                  setIsConnecting(false);
+                  showNotification('Failed to update video connection', 'error');
+                }
+              }
             }
           }
         }
         setIsProcessing(false);
       } catch (error) {
         setIsProcessing(false);
-        setIsVideoOn(false);
         const errorMessage = getErrorMessage(error);
         showNotification(errorMessage, 'error');
         console.error('Failed to start video:', error);
       }
     } else {
+      // Turn off video - disable track but keep peer connection alive
       toggleVideoTrack(false);
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = null;
       }
       setIsVideoOn(false);
+      
+      // Note: We don't remove tracks from peer connection when toggling off
+      // This allows us to easily re-enable them later without full renegotiation
+      // The track is just disabled, not removed
     }
   };
 
@@ -327,20 +348,21 @@ export default function VideoPanel({
       <div className="grid grid-cols-2 gap-3 mb-4">
         {/* Local Video */}
         <div className="aspect-video bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl flex items-center justify-center relative overflow-hidden">
-          {isVideoOn ? (
-            <video 
-              ref={localVideoRef}
-              className="w-full h-full object-cover" 
-              autoPlay 
-              muted 
-              playsInline 
-            />
-          ) : (
-            <div className="text-center">
-              <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-2">
-                <span className="text-white text-xl font-bold">Y</span>
+          <video 
+            ref={localVideoRef}
+            className={`w-full h-full object-cover ${isVideoOn ? 'block' : 'hidden'}`}
+            autoPlay 
+            muted 
+            playsInline 
+          />
+          {!isVideoOn && (
+            <div className="absolute inset-0 flex items-center justify-center text-center">
+              <div>
+                <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <span className="text-white text-xl font-bold">Y</span>
+                </div>
+                <p className="text-gray-400 text-xs">You</p>
               </div>
-              <p className="text-gray-400 text-xs">You</p>
             </div>
           )}
           <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
