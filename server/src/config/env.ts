@@ -11,5 +11,12 @@ export const config = {
   mercadoPago: {
     accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN || "",
   },
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID || "",
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+  },
+  session: {
+    secret: process.env.SESSION_SECRET || "your-secret-key-change-in-production",
+  },
 };
 

@@ -50,6 +50,29 @@ export const connectSocket = (url: string = 'http://localhost:3001'): Socket => 
       }
     });
 
+    // Handle session termination (when logged in from another device)
+    socket.on('session_terminated', (data: { message: string; reason: string }) => {
+      console.log('Session terminated:', data);
+      if (notificationHandler) {
+        notificationHandler(data.message || 'You have been logged in from another device', 'warning');
+      }
+      // Clear auth and redirect to login
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('username');
+      localStorage.removeItem('displayUsername');
+      localStorage.removeItem('userType');
+      // Disconnect socket
+      if (socket) {
+        socket.disconnect();
+        socket = null;
+      }
+      // Redirect to login after a short delay
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 2000);
+    });
+
     socket.on('disconnect', (reason) => {
       console.log('Disconnected from server, reason:', reason);
       // Don't set socket to null on disconnect - allow reconnection

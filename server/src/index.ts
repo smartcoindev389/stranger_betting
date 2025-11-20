@@ -3,6 +3,8 @@ import express from "express";
 import { createServer } from "node:http";
 import { Server } from "socket.io";
 import cors from "cors";
+import passport from "passport";
+import session from "express-session";
 
 import { config } from "./config/env.js";
 import { setupSocketHandlers } from "./lib/socket-handler.js";
@@ -16,6 +18,7 @@ import {
 import authRoutes from "./routes/auth.js";
 import pixRoutes from "./routes/pix.js";
 import adminRoutes from "./routes/admin.js";
+import "./controllers/passport.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -66,6 +69,24 @@ const corsOptions = {
 // Middleware
 app.use(cors(corsOptions));
 app.use(express.json());
+
+// Session configuration for Passport
+app.use(
+  session({
+    secret: config.session.secret,
+    resave: true,
+    saveUninitialized: true,
+    cookie: {
+      secure: config.nodeEnv === "production",
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    },
+  }),
+);
+
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Routes
 app.use("/api/auth", authRoutes);

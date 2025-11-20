@@ -43,10 +43,15 @@ import {
 import { ChessGame } from "../games/chess.js";
 import logger from "./logger.js";
 import { activeWSConnectionsGauge, totalRequestsCounter } from "./monitor.js";
+import { checkAndAutoBanUser } from "../utils/banManager.js";
 
 // Store active games in memory
 const userRooms = new Map<string, string>(); // userId -> roomId
 const rematchRequests = new Map<string, Set<string>>(); // roomId -> Set of userIds
+
+// Store active user sessions for single login enforcement
+const userSessions = new Map<string, string>(); // userId -> socketId
+const socketToUser = new Map<string, string>(); // socketId -> userId (reverse mapping)
 
 export const setupSocketHandlers = (io: Server): void => {
   io.on("connection", (socket: Socket) => {
@@ -79,11 +84,12 @@ export const setupSocketHandlers = (io: Server): void => {
 
         // Check if user exists and is not banned
         const user = (await query(
-          "SELECT id, username, is_banned, username_set FROM users WHERE id = ?",
+          "SELECT id, username, COALESCE(display_username, username) as display_username, is_banned, username_set FROM users WHERE id = ?",
           [userId],
         )) as Array<{
           id: string;
           username: string;
+          display_username: string;
           is_banned: boolean;
           username_set: boolean;
         }>;
@@ -93,7 +99,9 @@ export const setupSocketHandlers = (io: Server): void => {
           return;
         }
 
-        if (user[0].is_banned) {
+        // Check and auto-ban if user has 5+ reports
+        const isBanned = await checkAndAutoBanUser(userId);
+        if (isBanned) {
           socket.emit("error", {
             message: "Your account has been banned",
             banned: true,
@@ -109,7 +117,38 @@ export const setupSocketHandlers = (io: Server): void => {
           return;
         }
 
-        // Update session
+        // Check if user already has an active session (single login enforcement)
+        const existingSocketId = userSessions.get(userId);
+        if (existingSocketId && existingSocketId !== socket.id) {
+          logger.info({ userId, oldSocketId: existingSocketId, newSocketId: socket.id }, "User already has active session, disconnecting old session");
+          
+          // Get the old socket and disconnect it
+          const oldSocket = io.sockets.sockets.get(existingSocketId);
+          if (oldSocket) {
+            // Notify old client about new login
+            oldSocket.emit("session_terminated", {
+              message: "You have been logged in from another device. This session has been terminated.",
+              reason: "new_login",
+            });
+            
+            // Clean up old session
+            // Note: leaveAll() is private, so we disconnect which automatically leaves all rooms
+            userRooms.delete(userId);
+            socketToUser.delete(existingSocketId);
+            
+            // Disconnect old socket
+            oldSocket.disconnect(true);
+          }
+          
+          // Clean up if socket doesn't exist anymore
+          userSessions.delete(userId);
+        }
+
+        // Register new session
+        userSessions.set(userId, socket.id);
+        socketToUser.set(socket.id, userId);
+
+        // Update session in database
         await query("UPDATE users SET session_id = ? WHERE id = ?", [
           socket.id,
           userId,
@@ -118,7 +157,7 @@ export const setupSocketHandlers = (io: Server): void => {
         (socket as Socket & { userId: string }).userId = userId;
         socket.emit("connected", {
           userId,
-          username: user[0].username,
+          username: user[0].display_username, // Use display_username (second step username) for rooms
         });
       } catch (error) {
         logger.error(error, "Error in user_connect");
@@ -126,14 +165,7 @@ export const setupSocketHandlers = (io: Server): void => {
       }
     });
 
-    // Check if user is banned
-    const checkUserBanned = async (userId: string): Promise<boolean> => {
-      const user = (await query(
-        "SELECT is_banned FROM users WHERE id = ?",
-        [userId],
-      )) as Array<{ is_banned: boolean }>;
-      return user.length > 0 && user[0].is_banned;
-    };
+    // Note: checkAndAutoBanUser is imported from banManager.ts
 
     // Handle joining random room
     socket.on("join_random", async (data: { gameType: string }) => {
@@ -146,8 +178,9 @@ export const setupSocketHandlers = (io: Server): void => {
           return;
         }
 
-        // Check if banned
-        if (await checkUserBanned(socketWithUserId.userId)) {
+        // Check and auto-ban if user has 5+ reports
+        const isBanned = await checkAndAutoBanUser(socketWithUserId.userId);
+        if (isBanned) {
           socket.emit("error", {
             message: "Your account has been banned",
             banned: true,
@@ -177,7 +210,7 @@ export const setupSocketHandlers = (io: Server): void => {
 
             // Load and send chat history
             const chatHistory = (await query(
-              "SELECT cm.id, cm.user_id, cm.message, cm.created_at, u.username FROM chat_messages cm JOIN users u ON cm.user_id = u.id WHERE cm.room_id = ? ORDER BY cm.created_at ASC",
+              "SELECT cm.id, cm.user_id, cm.message, cm.created_at, COALESCE(u.display_username, u.username) as username FROM chat_messages cm JOIN users u ON cm.user_id = u.id WHERE cm.room_id = ? ORDER BY cm.created_at ASC",
               [existingRoom.id],
             )) as Array<{
               id: string;
@@ -284,7 +317,7 @@ export const setupSocketHandlers = (io: Server): void => {
 
         // Load and send chat history
         const chatHistory = (await query(
-          "SELECT cm.id, cm.user_id, cm.message, cm.created_at, u.username FROM chat_messages cm JOIN users u ON cm.user_id = u.id WHERE cm.room_id = ? ORDER BY cm.created_at ASC",
+          "SELECT cm.id, cm.user_id, cm.message, cm.created_at, COALESCE(u.display_username, u.username) as username FROM chat_messages cm JOIN users u ON cm.user_id = u.id WHERE cm.room_id = ? ORDER BY cm.created_at ASC",
           [room.id],
         )) as Array<{
           id: string;
@@ -528,8 +561,9 @@ export const setupSocketHandlers = (io: Server): void => {
           return;
         }
 
-        // Check if banned
-        if (await checkUserBanned(socketWithUserId.userId)) {
+        // Check and auto-ban if user has 5+ reports
+        const isBanned = await checkAndAutoBanUser(socketWithUserId.userId);
+        if (isBanned) {
           socket.emit("error", {
             message: "Your account has been banned",
             banned: true,
@@ -883,6 +917,22 @@ export const setupSocketHandlers = (io: Server): void => {
           return;
         }
 
+        // Check if reported user is already banned
+        const reportedUser = (await query(
+          "SELECT is_banned FROM users WHERE id = ?",
+          [reportedUserId],
+        )) as Array<{ is_banned: boolean }>;
+
+        if (reportedUser.length === 0) {
+          socket.emit("error", { message: "User not found" });
+          return;
+        }
+
+        if (reportedUser[0].is_banned) {
+          socket.emit("error", { message: "This user is already banned" });
+          return;
+        }
+
         // Check if already reported by this user in this room
         const roomId = userRooms.get(socketWithUserId.userId);
         const existingReport = (await query(
@@ -987,8 +1037,8 @@ export const setupSocketHandlers = (io: Server): void => {
           [messageId, roomId, socketWithUserId.userId, sanitizedMessage],
         );
 
-        // Get username
-        const user = (await query("SELECT username FROM users WHERE id = ?", [
+        // Get display username (second step username) for chat
+        const user = (await query("SELECT COALESCE(display_username, username) as username FROM users WHERE id = ?", [
           socketWithUserId.userId,
         ])) as Array<{ username: string }>;
         const username = user[0]?.username || "Unknown";
@@ -1418,16 +1468,45 @@ export const setupSocketHandlers = (io: Server): void => {
           rematchRequests.delete(roomId);
           await query("DELETE FROM rooms WHERE id = ?", [roomId]);
         } else {
-          const room = (await query("SELECT status FROM rooms WHERE id = ?", [
+          // Get room info and update status
+          const room = (await query("SELECT status, game_type FROM rooms WHERE id = ?", [
             roomId,
-          ])) as Array<{ status: string }>;
-          if (room.length > 0 && room[0].status === "playing") {
-            await updateRoomStatus(roomId, "waiting");
+          ])) as Array<{ status: string; game_type: string }>;
+          
+          if (room.length > 0) {
+            const wasPlaying = room[0].status === "playing";
+            
+            // Update room status to waiting if it was playing
+            if (wasPlaying) {
+              await updateRoomStatus(roomId, "waiting");
+            }
+
+            // Get or initialize game state for remaining player
+            let game = getGame(roomId);
+            if (!game) {
+              game = initializeGame(room[0].game_type as GameType);
+              setGame(roomId, game);
+            }
+            const gameState = getGameState(game);
+
+            // Get betting info
+            const bettingInfo = await getRoomBettingInfo(roomId);
+
+            // Notify remaining player(s) with updated state
+            io.to(roomId).emit("player_left", {
+              userId: socketWithUserId.userId,
+              roomId,
+              players,
+            });
+
+            // Send waiting_for_player event with full state so remaining player can continue
+            io.to(roomId).emit("waiting_for_player", {
+              roomId,
+              players,
+              gameState,
+              canMove: false, // Disable moves until new player joins
+            });
           }
-          socket.to(roomId).emit("player_left", {
-            userId: socketWithUserId.userId,
-            players,
-          });
         }
       } catch (error) {
         logger.error(error, "Error in leave_room");
@@ -1440,14 +1519,21 @@ export const setupSocketHandlers = (io: Server): void => {
       activeWSConnectionsGauge.dec();
 
       const socketWithUserId = socket as Socket & { userId?: string };
-      if (socketWithUserId.userId) {
-        const roomId = userRooms.get(socketWithUserId.userId);
+      const userId = socketWithUserId.userId || socketToUser.get(socket.id);
+      
+      // Clean up session tracking
+      if (userId) {
+        // Only remove if this socket is the current active session
+        const currentSocketId = userSessions.get(userId);
+        if (currentSocketId === socket.id) {
+          userSessions.delete(userId);
+        }
+        socketToUser.delete(socket.id);
+        
+        const roomId = userRooms.get(userId);
         if (roomId) {
-          await removePlayerFromRoom(roomId, socketWithUserId.userId);
-          socket.to(roomId).emit("player_left", {
-            userId: socketWithUserId.userId,
-          });
-          userRooms.delete(socketWithUserId.userId);
+          await removePlayerFromRoom(roomId, userId);
+          userRooms.delete(userId);
 
           const players = await getRoomPlayers(roomId);
           if (players.length === 0) {
@@ -1455,11 +1541,44 @@ export const setupSocketHandlers = (io: Server): void => {
             rematchRequests.delete(roomId);
             await query("DELETE FROM rooms WHERE id = ?", [roomId]);
           } else {
-            const room = (await query("SELECT status FROM rooms WHERE id = ?", [
+            // Get room info and update status
+            const room = (await query("SELECT status, game_type FROM rooms WHERE id = ?", [
               roomId,
-            ])) as Array<{ status: string }>;
-            if (room.length > 0 && room[0].status === "playing") {
-              await updateRoomStatus(roomId, "waiting");
+            ])) as Array<{ status: string; game_type: string }>;
+            
+            if (room.length > 0) {
+              const wasPlaying = room[0].status === "playing";
+              
+              // Update room status to waiting if it was playing
+              if (wasPlaying) {
+                await updateRoomStatus(roomId, "waiting");
+              }
+
+              // Get or initialize game state for remaining player
+              let game = getGame(roomId);
+              if (!game) {
+                game = initializeGame(room[0].game_type as GameType);
+                setGame(roomId, game);
+              }
+              const gameState = getGameState(game);
+
+              // Get betting info
+              const bettingInfo = await getRoomBettingInfo(roomId);
+
+              // Notify remaining player(s) with updated state
+              io.to(roomId).emit("player_left", {
+                userId,
+                roomId,
+                players,
+              });
+
+              // Send waiting_for_player event with full state so remaining player can continue
+              io.to(roomId).emit("waiting_for_player", {
+                roomId,
+                players,
+                gameState,
+                canMove: false, // Disable moves until new player joins
+              });
             }
           }
         }

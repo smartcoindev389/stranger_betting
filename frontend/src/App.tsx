@@ -109,6 +109,8 @@ function AppContent() {
       console.log('User connected:', data);
       setUsername(data.username);
       setUserId(data.userId);
+      // Store display_username (second username) in localStorage
+      localStorage.setItem('displayUsername', data.username);
     });
 
     // Don't disconnect on cleanup - keep socket alive for the app lifetime
@@ -136,17 +138,14 @@ function AppContent() {
       socket.emit('user_connect', { userId: authUserId });
       socket.once('connected', (data: { userId: string; username: string }) => {
         setUsername(data.username);
+        // Store display_username (second username) in localStorage
+        localStorage.setItem('displayUsername', data.username);
         setCurrentPage('home');
       });
     } else {
       // If socket not ready, still navigate to home
       setCurrentPage('home');
     }
-  };
-
-  const handleUserConnect = (userName: string) => {
-    console.log('Connecting user:', userName);
-    connectUser(userName);
   };
 
   const handleSendMessage = (message: string) => {
@@ -206,7 +205,6 @@ function AppContent() {
         <Home 
           onNavigate={handleNavigate} 
           isConnected={isConnected} 
-          onUserConnect={handleUserConnect}
           username={username}
           onLogout={handleLogout}
           userId={userId}

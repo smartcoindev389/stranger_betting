@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json"
   },
   "dependencies": {
+    "@react-oauth/google": "^0.12.2",
     "@supabase/supabase-js": "^2.57.4",
     "eventemitter3": "^5.0.1",
     "lucide-react": "^0.344.0",

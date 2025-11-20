@@ -44,6 +44,8 @@ export default function AuthCallback({ userId, onUsernameSet }: AuthCallbackProp
       if (socket) {
         socket.emit('user_connect', { userId });
         socket.once('connected', (data: { userId: string; username: string }) => {
+          // Store display_username (second username) in localStorage
+          localStorage.setItem('displayUsername', data.username);
           showNotification('Welcome!', 'success');
           onUsernameSet(data.userId);
         });

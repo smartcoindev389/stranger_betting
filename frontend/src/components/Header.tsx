@@ -13,8 +13,8 @@ interface HeaderProps {
 }
 
 export default function Header({ username, isConnected, onLogout, userId }: HeaderProps) {
-  // Get username from localStorage if not provided
-  const displayUsername = username || localStorage.getItem('username') || 'Guest';
+  // Get display_username (second username) from localStorage or props, fallback to first username
+  const displayUsername = username || localStorage.getItem('displayUsername') || localStorage.getItem('username') || 'Guest';
   const { showConfirm, DialogComponent } = useDialog();
   const [showWallet, setShowWallet] = useState(false);
   

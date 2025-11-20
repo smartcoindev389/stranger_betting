@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS users (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     coins INT DEFAULT 100,
     balance DECIMAL(10, 2) DEFAULT 0.00 COMMENT 'Balance in Brazilian Real (BRL)',
-    -- Legacy OAuth fields (deprecated, kept for backward compatibility)
-    oauth_provider ENUM('google', 'facebook') NULL,
+    -- OAuth fields for Google authentication
+    oauth_provider ENUM('google') NULL,
     oauth_id VARCHAR(255) NULL,
     email VARCHAR(255) NULL,
     profile_picture VARCHAR(500) NULL,
@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS users (
     report_count INT DEFAULT 0,
     -- Username set flag (always true for username-based login)
     username_set BOOLEAN DEFAULT FALSE,
+    -- Display username for rooms/chatting (second step username, used in game rooms)
+    display_username VARCHAR(50) NULL COMMENT 'Display username used in rooms, chat, and video (second step username)',
     -- Pix key for withdrawals
     pix_key VARCHAR(255) NULL COMMENT 'User Pix key (CPF, email, phone, or random key)',
     -- User type/role

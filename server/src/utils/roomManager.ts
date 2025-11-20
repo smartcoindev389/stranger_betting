@@ -63,7 +63,7 @@ export const getRoomPlayers = async (
   roomId: string,
 ): Promise<RoomPlayer[]> => {
   const sql = `
-    SELECT u.id, u.username, rp.is_host
+    SELECT u.id, u.username, COALESCE(u.display_username, u.username) as display_username, rp.is_host
     FROM room_players rp
     JOIN users u ON rp.user_id = u.id
     WHERE rp.room_id = ?
@@ -72,12 +72,13 @@ export const getRoomPlayers = async (
   const results = (await query(sql, [roomId])) as Array<{
     id: string;
     username: string;
+    display_username: string;
     is_host: boolean;
   }>;
 
   return results.map((r) => ({
     id: r.id,
-    username: r.username,
+    username: r.display_username, // Use display_username (second step username) for rooms
     isHost: r.is_host,
   }));
 };

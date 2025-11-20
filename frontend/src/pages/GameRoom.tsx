@@ -62,7 +62,7 @@ export default function GameRoom({
   const [userId, setUserId] = useState<string>(propUserId || '');
   const [localRoomId, setLocalRoomId] = useState<string>(roomId || '');
   const [isInitializing, setIsInitializing] = useState(true); // Track if component is initializing
-  const [username, setUsername] = useState<string>(localStorage.getItem('username') || '');
+  const [username, setUsername] = useState<string>(localStorage.getItem('displayUsername') || localStorage.getItem('username') || '');
   const gameStateRef = useRef<any>(null); // Ref to track gameState for event handlers
   const listenersSetupRef = useRef<boolean>(false); // Track if listeners are already set up
   const currentRoomIdRef = useRef<string>(''); // Track current room to prevent duplicate setup
@@ -161,6 +161,8 @@ export default function GameRoom({
       setUserId(data.userId);
       if (data.username) {
         setUsername(data.username);
+        // Store display_username (second username) in localStorage
+        localStorage.setItem('displayUsername', data.username);
       }
     };
     
@@ -264,12 +266,25 @@ export default function GameRoom({
         const playerCount = data.players?.length || 0;
         
         // Update players first
-        setPlayers(data.players || []);
+        if (data.players && Array.isArray(data.players)) {
+          setPlayers(data.players);
+        }
+        
+        // Update game state if provided (important when player leaves and room resets)
+        if (data.gameState) {
+          gameStateRef.current = data.gameState;
+          setGameState(data.gameState);
+          console.log('Updated game state in waiting_for_player:', data.gameState);
+        }
         
         // Update local roomId if not set
         if (data.roomId && !localRoomId) {
           setLocalRoomId(data.roomId);
         }
+        
+        // Update canMove based on event data or player count
+        const movesAllowed = data.canMove !== undefined ? data.canMove : playerCount >= 2;
+        setCanMove(movesAllowed);
         
         // CRITICAL: If we have 2 players, NEVER set waiting to true
         // Game should start immediately, so hide waiting notification
@@ -277,11 +292,11 @@ export default function GameRoom({
           console.log('2 players present - setting isWaiting to false immediately');
           setIsWaiting(false);
           setCanMove(true);
+          setIsInitializing(false);
           return; // Don't process further
         }
         
         // Only set waiting if we have less than 2 players
-        // But don't override gameState if it already exists
         if (playerCount < 2) {
           console.log('Setting waiting state (players:', playerCount, ')');
           setIsWaiting(true);
@@ -388,11 +403,31 @@ export default function GameRoom({
 
     // Listen for player left
     const handlePlayerLeft = (data: any) => {
-      // Find opponent username
-      const opponent = players.find((p: any) => p.id !== userId && p.id !== data.userId);
-      const opponentUsername = opponent?.username || 'Opponent';
+      console.log('Player left event received:', data);
+      const currentRoomId = roomId || localRoomId;
+      
+      // Only process if roomId matches
+      if (data.roomId && data.roomId !== currentRoomId) {
+        console.log('Ignoring player_left - roomId mismatch');
+        return;
+      }
+
+      // Update players list if provided
+      if (data.players && Array.isArray(data.players)) {
+        setPlayers(data.players);
+        console.log('Updated players list after player left:', data.players);
+      }
+
+      // Find opponent username who left
+      const leftPlayer = players.find((p: any) => p.id === data.userId);
+      const opponentUsername = leftPlayer?.username || 'Opponent';
       showNotificationRef.current(`${opponentUsername} left the game`, 'info');
+      
+      // Set waiting state - moves disabled until new player joins
       setIsWaiting(true);
+      setCanMove(false);
+      
+      // Note: waiting_for_player event will be sent after this with full state
     };
 
     // Listen for player joined (when someone joins your waiting room)

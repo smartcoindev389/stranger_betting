@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { verifyToken, extractTokenFromHeader } from "../utils/jwt.js";
 import { query } from "../db/connection.js";
 import logger from "../lib/logger.js";
+import { checkAndAutoBanUser } from "../utils/banManager.js";
 
 // Extend Express Request to include user info
 export interface AuthRequest extends Request {
@@ -51,7 +52,9 @@ export const authenticateToken = async (
       return;
     }
 
-    if (user[0].is_banned) {
+    // Check and auto-ban if user has 5+ reports
+    const isBanned = await checkAndAutoBanUser(payload.userId);
+    if (isBanned) {
       res.status(403).json({ error: "Account is banned" });
       return;
     }

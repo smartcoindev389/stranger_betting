@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Circle, Square, Crown, Users, Hash } from 'lucide-react';
 import Header from '../components/Header';
 import { getSocket, connectSocket } from '../utils/socket';
@@ -7,18 +7,30 @@ import { useNotification } from '../contexts/NotificationContext';
 interface HomeProps {
   onNavigate: (page: string, data?: { gameType?: string; keyword?: string; roomId?: string }) => void;
   isConnected: boolean;
-  onUserConnect: (username: string) => void;
   username?: string;
   onLogout?: () => void;
   userId?: string;
 }
 
-export default function Home({ onNavigate, isConnected, onUserConnect, username: propUsername, onLogout, userId }: HomeProps) {
+export default function Home({ onNavigate, isConnected, username: propUsername, onLogout, userId }: HomeProps) {
   const [keyword, setKeyword] = useState('');
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
   const [username, setUsername] = useState('');
-  const [isUsernameSet, setIsUsernameSet] = useState(false);
+  const [showUsernameForm, setShowUsernameForm] = useState(false);
+  // Check if displayUsername exists in localStorage (user has already set second username)
+  const [isUsernameSet, setIsUsernameSet] = useState(() => {
+    return !!localStorage.getItem('displayUsername');
+  });
   const { showNotification } = useNotification();
+
+  // Check for displayUsername on mount and when userId changes
+  useEffect(() => {
+    const displayUsername = localStorage.getItem('displayUsername');
+    if (displayUsername) {
+      setIsUsernameSet(true);
+      setUsername(displayUsername); // Pre-fill the form with current username
+    }
+  }, [userId]);
 
   const games = [
     {
@@ -44,11 +56,49 @@ export default function Home({ onNavigate, isConnected, onUserConnect, username:
     },
   ];
 
-  const handleSetUsername = () => {
-    if (username.trim()) {
-      console.log('Setting username:', username.trim());
-      onUserConnect(username.trim());
-      setIsUsernameSet(true);
+  const handleSetUsername = async () => {
+    if (!username.trim() || username.length < 3 || username.length > 20) {
+      showNotification('Username must be between 3 and 20 characters', 'warning');
+      return;
+    }
+
+    if (!userId) {
+      showNotification('User ID not found', 'error');
+      return;
+    }
+
+    try {
+      // Set the second username (display username for rooms)
+      const response = await fetch('http://localhost:3001/api/auth/set-username', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ userId, username: username.trim() }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to set username');
+      }
+
+      // Connect user via socket after setting username
+      const socket = getSocket();
+      if (socket) {
+        socket.emit('user_connect', { userId });
+        socket.once('connected', (data: { userId: string; username: string }) => {
+          // Store display_username (second username) in localStorage
+          localStorage.setItem('displayUsername', data.username);
+          showNotification('Username updated successfully!', 'success');
+          setIsUsernameSet(true);
+          setShowUsernameForm(false); // Hide form after successful update
+        });
+      } else {
+        showNotification('Failed to connect to server', 'error');
+      }
+    } catch (error: any) {
+      showNotification(error.message || 'Failed to set username', 'error');
     }
   };
 
@@ -193,6 +243,63 @@ export default function Home({ onNavigate, isConnected, onUserConnect, username:
       <Header isConnected={isConnected} userId={userId} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Username change section */}
+        {isUsernameSet && (
+          <div className="mb-6 flex justify-end">
+            <button
+              onClick={() => setShowUsernameForm(!showUsernameForm)}
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              {showUsernameForm ? 'Hide' : 'Change'} Username
+            </button>
+          </div>
+        )}
+
+        {showUsernameForm && isUsernameSet && (
+          <div className="max-w-md mx-auto mb-8">
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4 text-center">
+                Change Your Username
+              </h3>
+              <p className="text-gray-600 mb-4 text-center text-sm">
+                Update your display username for rooms and chat
+              </p>
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Enter new username (3-20 characters)"
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onKeyPress={(e) => e.key === 'Enter' && handleSetUsername()}
+                  maxLength={20}
+                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleSetUsername}
+                    disabled={!username.trim() || username.length < 3 || !isConnected}
+                    className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-500 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-cyan-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isConnected ? 'Update Username' : 'Connecting...'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowUsernameForm(false);
+                      setUsername(localStorage.getItem('displayUsername') || '');
+                    }}
+                    className="px-4 py-3 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 text-center">
+                  {username.length}/20 characters
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="text-center mb-16 animate-fade-in">
           <h2 className="text-5xl font-bold text-gray-900 mb-4">
             Play, Chat, and Compete
