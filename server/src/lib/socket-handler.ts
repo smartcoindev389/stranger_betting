@@ -402,8 +402,9 @@ export const setupSocketHandlers = (io: Server): void => {
             return;
           }
 
-          // Check if banned
-          if (await checkUserBanned(socketWithUserId.userId)) {
+          // Check and auto-ban if user has 5+ reports
+          const isBanned = await checkAndAutoBanUser(socketWithUserId.userId);
+          if (isBanned) {
             socket.emit("error", {
               message: "Your account has been banned",
               banned: true,
