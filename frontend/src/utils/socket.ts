@@ -18,7 +18,19 @@ const showNotification = (message: string, type: 'error' | 'success' | 'info' | 
 
 let socket: Socket | null = null;
 
-export const connectSocket = (url: string = 'http://localhost:3001'): Socket => {
+// Get backend URL from environment variable, fallback to localhost for development
+const getBackendUrl = (): string => {
+  const apiUrl = import.meta.env.VITE_API_URL;
+  if (apiUrl) {
+    // Remove /api suffix if present, Socket.io connects to root
+    return apiUrl.replace(/\/api$/, '');
+  }
+  // Default to localhost for development
+  return 'http://localhost:3001';
+};
+
+export const connectSocket = (url?: string): Socket => {
+  const backendUrl = url || getBackendUrl();
   if (!socket || !socket.connected) {
     // If socket exists but is disconnected, clean it up first
     if (socket) {

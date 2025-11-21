@@ -35,15 +35,16 @@ export default function ChatPanel({ onSendMessage, messages }: ChatPanelProps) {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      e.stopPropagation();
       handleSend();
     }
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg flex flex-col h-[500px]">
+    <div className="bg-white rounded-2xl shadow-lg flex flex-col h-full">
       <div className="p-4 border-b border-gray-200">
         <h3 className="font-semibold text-gray-800">{t('chat.title')}</h3>
       </div>
@@ -78,23 +79,30 @@ export default function ChatPanel({ onSendMessage, messages }: ChatPanelProps) {
       </div>
 
       <div className="p-4 border-t border-gray-200">
-        <div className="flex gap-2">
+        <form 
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSend();
+          }}
+          className="flex gap-2 items-center"
+        >
           <input
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyDown}
             placeholder={t('chat.typeMessage')}
             className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
           <button
-            onClick={handleSend}
-            className="bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            type="submit"
+            className="w-10 h-10 min-w-[2.5rem] min-h-[2.5rem] bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shrink-0 active:scale-95 shadow-md hover:shadow-lg"
             disabled={!inputValue.trim()}
+            aria-label={t('chat.send')}
           >
             <Send className="w-5 h-5" />
           </button>
-        </div>
+        </form>
       </div>
     </div>
   );

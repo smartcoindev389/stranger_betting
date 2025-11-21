@@ -8,6 +8,7 @@ import VideoPanel from '../components/VideoPanel';
 import BettingPanel from '../components/BettingPanel';
 import { getSocket } from '../utils/socket';
 import { useNotification } from '../contexts/NotificationContext';
+import { useTranslation } from 'react-i18next';
 
 interface Message {
   id: string;
@@ -44,12 +45,13 @@ export default function GameRoom({
   onExitRoom,
   onLogout,
 }: GameRoomProps) {
+  const { t } = useTranslation();
   const { showNotification } = useNotification();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      sender: 'System',
-      text: 'Welcome to the game room! Good luck!',
+      sender: t('gameRoom.system'),
+      text: t('gameRoom.welcomeMessage'),
       timestamp: new Date(),
       isOwn: false,
     },
@@ -149,7 +151,7 @@ export default function GameRoom({
     const handleError = (error: any) => {
       console.error('Socket error:', error);
       if (error.message) {
-        showNotificationRef.current(`Error: ${error.message}`, 'error');
+        showNotificationRef.current(`${t('gameRoom.errorPrefix')} ${error.message}`, 'error');
       }
     };
     
@@ -330,17 +332,17 @@ export default function GameRoom({
       
       // Show notification about game result
       if (data.isDraw) {
-        showNotificationRef.current('Game ended in a draw!', 'info');
+        showNotificationRef.current(t('notifications.gameEndedDraw'), 'info');
       } else if (data.winner || data.winningTeam) {
         const winnerTeam = data.winner || data.winningTeam;
         const playerTeam = getPlayerTeam();
         if (winnerTeam === playerTeam) {
-          showNotificationRef.current('🎉 Congratulations! You won the game!', 'success');
+          showNotificationRef.current(t('notifications.congratulations'), 'success');
         } else {
           // Find opponent username (the one who is not the current user)
           const opponent = players.find((p: any) => p.id !== userId);
-          const opponentUsername = opponent?.username || 'Opponent';
-          showNotificationRef.current(`${opponentUsername} won the game!`, 'info');
+          const opponentUsername = opponent?.username || t('common.opponent');
+          showNotificationRef.current(t('notifications.opponentWonGame', { username: opponentUsername }), 'info');
         }
       }
     };
@@ -365,13 +367,13 @@ export default function GameRoom({
         const currentUserId = userId || propUserId;
         const historyMessages: Message[] = data.messages.map((msg: any) => ({
           id: msg.id || Date.now().toString(),
-          sender: msg.username || 'Unknown',
+          sender: msg.username || t('common.guest'),
           text: msg.message,
           timestamp: new Date(msg.timestamp || Date.now()),
           isOwn: msg.userId === currentUserId,
         }));
         // Replace messages with history (but keep system message if exists)
-        const systemMessage = messages.find(msg => msg.sender === 'System');
+        const systemMessage = messages.find(msg => msg.sender === t('gameRoom.system'));
         setMessages(systemMessage ? [systemMessage, ...historyMessages] : historyMessages);
         console.log('Loaded chat history:', historyMessages.length, 'messages');
       }
@@ -387,7 +389,7 @@ export default function GameRoom({
       if (!isOwnMessage) {
         const newMessage: Message = {
           id: data.id || Date.now().toString(),
-          sender: data.username || 'Unknown',
+          sender: data.username || t('common.guest'),
           text: data.message,
           timestamp: new Date(data.timestamp || Date.now()),
           isOwn: false,
@@ -420,8 +422,8 @@ export default function GameRoom({
 
       // Find opponent username who left
       const leftPlayer = players.find((p: any) => p.id === data.userId);
-      const opponentUsername = leftPlayer?.username || 'Opponent';
-      showNotificationRef.current(`${opponentUsername} left the game`, 'info');
+      const opponentUsername = leftPlayer?.username || t('common.opponent');
+      showNotificationRef.current(t('notifications.playerLeft', { username: opponentUsername }), 'info');
       
       // Set waiting state - moves disabled until new player joins
       setIsWaiting(true);
@@ -457,7 +459,7 @@ export default function GameRoom({
 
     // Listen for account banned
     const handleAccountBanned = (data: { message: string }) => {
-      showNotificationRef.current(data.message || 'Your account has been banned', 'error');
+      showNotificationRef.current(data.message || t('notifications.accountBanned'), 'error');
       // Redirect to login after a delay
       setTimeout(() => {
         onExitRoomRef.current();
@@ -510,7 +512,7 @@ export default function GameRoom({
     const tempId = `temp-${Date.now()}-${Math.random()}`;
     const newMessage: Message = {
       id: tempId,
-      sender: 'You',
+      sender: t('common.you'),
       text,
       timestamp: new Date(),
       isOwn: true,
@@ -530,37 +532,39 @@ export default function GameRoom({
         {isWaiting && players.length > 0 && players.length < 2 && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6 text-center">
             <p className="text-yellow-800 font-semibold">
-              Waiting for another player to join...
+              {t('game.waitingForAnotherPlayer')}
             </p>
             <p className="text-yellow-600 text-sm mt-1">
-              {players.length}/2 players in room - Moves will be enabled when both players join
+              {t('game.playersInRoom', { count: players.length })}
             </p>
           </div>
         )}
         {showLoading && (
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 text-center">
             <p className="text-blue-800 font-semibold">
-              Connecting to game room...
+              {t('game.connectingToRoom')}
             </p>
             <p className="text-blue-600 text-sm mt-1">
-              Please wait while we load the game
+              {t('game.pleaseWait')}
             </p>
           </div>
         )}
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2 space-y-6">
             {gameState ? (
-              <GameBoard
-                key={`board-${roomId || localRoomId}`}
-                gameType={gameType}
-                gameState={gameState}
-                playerTeam={getPlayerTeam()}
-                isMyTurn={getIsMyTurn()}
-                players={players}
-                currentUserId={userId}
-              />
+              <div className="h-[500px] md:h-[600px] lg:h-[700px]">
+                <GameBoard
+                  key={`board-${roomId || localRoomId}`}
+                  gameType={gameType}
+                  gameState={gameState}
+                  playerTeam={getPlayerTeam()}
+                  isMyTurn={getIsMyTurn()}
+                  players={players}
+                  currentUserId={userId}
+                />
+              </div>
             ) : isWaiting ? (
-              <div className="bg-white rounded-2xl shadow-lg p-6 flex items-center justify-center min-h-[500px]">
+              <div className="bg-white rounded-2xl shadow-lg p-6 flex items-center justify-center h-[500px] md:h-[600px] lg:h-[700px]">
                 <div className="text-center">
                   <div className="w-64 h-64 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl border-2 border-blue-200 flex items-center justify-center mb-4 mx-auto">
                     <span className="text-6xl">
@@ -568,23 +572,32 @@ export default function GameRoom({
                     </span>
                   </div>
                   <p className="text-gray-600 font-medium">
-                    {gameType === 'tic-tac-toe' && 'Tic-Tac-Toe Board'}
-                    {gameType === 'checkers' && 'Checkers Board'}
-                    {gameType === 'chess' && 'Chess Board'}
+                    {gameType === 'tic-tac-toe' && t('game.board.ticTacToeBoard')}
+                    {gameType === 'checkers' && t('game.board.checkersBoard')}
+                    {gameType === 'chess' && t('game.board.chessBoard')}
                   </p>
-                  <p className="text-sm text-gray-500 mt-2">Waiting for game to start...</p>
+                  <p className="text-sm text-gray-500 mt-2">{t('game.board.waitingForGameStart')}</p>
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-2xl shadow-lg p-6 flex items-center justify-center min-h-[500px]">
+              <div className="bg-white rounded-2xl shadow-lg p-6 flex items-center justify-center h-[500px] md:h-[600px] lg:h-[700px]">
                 <div className="text-center">
                   <div className="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
-                  <p className="text-gray-600">Loading game...</p>
+                  <p className="text-gray-600">{t('game.loadingGame')}</p>
                   {!isConnected && (
-                    <p className="text-sm text-red-600 mt-2">Not connected to server. Please check your connection.</p>
+                    <p className="text-sm text-red-600 mt-2">{t('game.notConnectedToServer')}</p>
                   )}
                 </div>
               </div>
+            )}
+
+            {/* Betting Panel moved below game board */}
+            {players.length > 0 && (
+              <BettingPanel
+                roomId={roomId || localRoomId}
+                userId={userId}
+                players={players}
+              />
             )}
 
             <div className="flex gap-4">
@@ -593,52 +606,51 @@ export default function GameRoom({
                 className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-500 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-cyan-600 transition-all duration-300 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
               >
                 <RotateCcw className="w-5 h-5" />
-                Rematch
+                {t('gameRoom.rematch')}
               </button>
               <button
                 onClick={onExitRoom}
                 className="flex-1 bg-gray-200 text-gray-900 py-3 rounded-xl font-semibold hover:bg-gray-300 transition-colors flex items-center justify-center gap-2"
               >
                 <LogOut className="w-5 h-5" />
-                Exit Room
+                {t('gameRoom.exitRoom')}
               </button>
             </div>
           </div>
 
-          <div className="space-y-6">
-            {players.length > 0 && (
-              <>
-                <BettingPanel
-                  roomId={roomId || localRoomId}
-                  userId={userId}
-                  players={players}
-                />
-                <GameInfoPanel
-                  gameType={gameType}
-                  players={players}
-                  gameState={gameState}
-                  playerTeam={getPlayerTeam()}
-                  isMyTurn={getIsMyTurn()}
-                  gameOver={gameOver}
-                  currentUserId={userId}
-                />
-              </>
-            )}
+          <div className="lg:col-span-3 space-y-6 flex flex-col">
             {players.length === 0 && (
               <div className="bg-white rounded-2xl shadow-lg p-6">
                 <div className="text-center text-gray-500">
-                  <p>Waiting for players...</p>
+                  <p>{t('game.waitingForPlayers')}</p>
                 </div>
               </div>
             )}
-            <ChatPanel onSendMessage={handleSendMessage} messages={messages} />
-            <VideoPanel 
-              onStartVideo={onStartVideo} 
-              onEndCall={onEndCall} 
-              players={players} 
-              currentUserId={userId}
-              roomId={roomId || localRoomId}
-            />
+            <div className="flex flex-col gap-6 h-[500px] md:h-[600px] lg:h-[700px]">
+              <div className="flex-1 min-h-0">
+                <ChatPanel onSendMessage={handleSendMessage} messages={messages} />
+              </div>
+              <div className="flex-1 min-h-0">
+                <VideoPanel 
+                  onStartVideo={onStartVideo} 
+                  onEndCall={onEndCall} 
+                  players={players} 
+                  currentUserId={userId}
+                  roomId={roomId || localRoomId}
+                />
+              </div>
+            </div>
+            {players.length > 0 && (
+              <GameInfoPanel
+                gameType={gameType}
+                players={players}
+                gameState={gameState}
+                playerTeam={getPlayerTeam()}
+                isMyTurn={getIsMyTurn()}
+                gameOver={gameOver}
+                currentUserId={userId}
+              />
+            )}
           </div>
         </div>
       </main>

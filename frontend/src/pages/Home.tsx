@@ -73,7 +73,8 @@ export default function Home({ onNavigate, isConnected, username: propUsername, 
 
     try {
       // Set the second username (display username for rooms)
-      const response = await fetch('http://localhost:3001/api/auth/set-username', {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const response = await fetch(`${API_URL}/api/auth/set-username`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -145,7 +146,7 @@ export default function Home({ onNavigate, isConnected, username: propUsername, 
       
       const handleError = (error: any) => {
         console.error('Error joining room:', error);
-        showNotification(error.message || 'Failed to join room', 'error');
+        showNotification(error.message || t('gameRoom.failedToJoinRoom'), 'error');
         socket.off('game_start', handleGameStart);
         socket.off('waiting_for_player', handleWaiting);
         socket.off('error', handleError);
