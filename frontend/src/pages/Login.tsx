@@ -1,12 +1,16 @@
 import { useState } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
+import { useTranslation } from 'react-i18next';
 import { useNotification } from '../contexts/NotificationContext';
+import LanguageSwitcher from '../components/LanguageSwitcher';
+import logo from '../assets/home_logo.png';
 
 interface LoginProps {
   onAuthSuccess: (userId: string, username: string) => void;
 }
 
 export default function Login({ onAuthSuccess }: LoginProps) {
+  const { t } = useTranslation();
   const [googleLoading, setGoogleLoading] = useState(false);
   const { showNotification } = useNotification();
 
@@ -31,23 +35,23 @@ export default function Login({ onAuthSuccess }: LoginProps) {
           const error = await response.json();
           // Handle banned users specifically
           if (error.banned || error.error?.toLowerCase().includes('banned')) {
-            showNotification('Your account has been banned. Please contact support if you believe this is an error.', 'error');
+            showNotification(t('auth.accountBanned'), 'error');
             setGoogleLoading(false);
             return;
           }
-          throw new Error(error.error || 'Authentication failed');
+          throw new Error(error.error || t('auth.authenticationFailed'));
         }
 
         const data = await response.json();
 
         if (data.error) {
-          showNotification(data.error || 'Authentication failed', 'error');
+          showNotification(data.error || t('auth.authenticationFailed'), 'error');
           setGoogleLoading(false);
           return;
         }
 
         if (!data.user || !data.token) {
-          showNotification('Invalid response from server', 'error');
+          showNotification(t('auth.invalidResponse'), 'error');
           setGoogleLoading(false);
           return;
         }
@@ -70,23 +74,29 @@ export default function Login({ onAuthSuccess }: LoginProps) {
         onAuthSuccess(data.userId, data.username);
       } catch (error: any) {
         console.error('Google login error:', error);
-        showNotification(error.message || 'Failed to login with Google', 'error');
+        showNotification(error.message || t('auth.authenticationFailed'), 'error');
         setGoogleLoading(false);
       }
     },
     onError: (error) => {
       console.error('Google login error:', error);
-      showNotification('Google sign-in failed. Please try again.', 'error');
+      showNotification(t('auth.googleSignInFailed'), 'error');
       setGoogleLoading(false);
     },
   });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex items-center justify-center">
+      <div className="absolute top-4 right-4">
+        <LanguageSwitcher />
+      </div>
       <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full mx-4">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Welcome</h1>
-          <p className="text-gray-600">Sign in with Google to start playing</p>
+          <div className="flex justify-center mb-6">
+            <img src={logo} alt="Logo" className="h-24 w-auto" />
+          </div>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">{t('common.welcome')}</h1>
+          <p className="text-gray-600">{t('auth.signInPrompt')}</p>
         </div>
 
         <div className="space-y-4">
@@ -98,7 +108,7 @@ export default function Login({ onAuthSuccess }: LoginProps) {
             {googleLoading ? (
               <div className="flex items-center justify-center gap-2">
                 <div className="w-5 h-5 border-2 border-gray-700 border-t-transparent rounded-full animate-spin" />
-                <span>Signing in...</span>
+                <span>{t('auth.signingIn')}</span>
               </div>
             ) : (
               <>
@@ -120,14 +130,14 @@ export default function Login({ onAuthSuccess }: LoginProps) {
                     d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                   />
                 </svg>
-                <span className="text-lg">Sign in with Google</span>
+                <span className="text-lg">{t('auth.signInWithGoogle')}</span>
               </>
             )}
           </button>
         </div>
 
         <p className="text-xs text-gray-500 text-center mt-6">
-          By continuing, you agree to our Terms of Service and Privacy Policy
+          {t('auth.termsAndPrivacy')}
         </p>
       </div>
     </div>

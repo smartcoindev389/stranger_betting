@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { Gamepad2, LogOut, Wallet } from 'lucide-react';
+import { LogOut, Wallet } from 'lucide-react';
 import { clearAuth } from '../utils/api';
 import { disconnectSocket } from '../utils/socket';
 import { useDialog } from '../hooks/useDialog';
+import { useTranslation } from 'react-i18next';
 import PixWallet from './PixWallet';
+import LanguageSwitcher from './LanguageSwitcher';
+import logo from '../assets/logo.png';
 
 interface HeaderProps {
   username?: string;
@@ -13,8 +16,9 @@ interface HeaderProps {
 }
 
 export default function Header({ username, isConnected, onLogout, userId }: HeaderProps) {
+  const { t } = useTranslation();
   // Get display_username (second username) from localStorage or props, fallback to first username
-  const displayUsername = username || localStorage.getItem('displayUsername') || localStorage.getItem('username') || 'Guest';
+  const displayUsername = username || localStorage.getItem('displayUsername') || localStorage.getItem('username') || t('common.guest');
   const { showConfirm, DialogComponent } = useDialog();
   const [showWallet, setShowWallet] = useState(false);
   
@@ -22,11 +26,11 @@ export default function Header({ username, isConnected, onLogout, userId }: Head
   const currentUserId = userId || localStorage.getItem('userId') || '';
 
   const handleLogout = async () => {
-    const confirmed = await showConfirm('Are you sure you want to logout?', {
+    const confirmed = await showConfirm(t('header.logoutConfirm'), {
       type: 'warning',
-      title: 'Logout',
-      confirmText: 'Logout',
-      cancelText: 'Cancel',
+      title: t('header.logoutTitle'),
+      confirmText: t('common.logout'),
+      cancelText: t('common.cancel'),
     });
 
     if (confirmed) {
@@ -52,10 +56,7 @@ export default function Header({ username, isConnected, onLogout, userId }: Head
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Gamepad2 className="w-8 h-8 text-blue-600" />
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-              SkillPlay
-            </h1>
+            <img src={logo} alt="Logo" className="h-10 w-auto" />
           </div>
 
           <div className="flex items-center gap-4">
@@ -63,27 +64,28 @@ export default function Header({ username, isConnected, onLogout, userId }: Head
             <div className="flex items-center gap-2">
               <div className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-400'} animate-pulse`} />
               <span className="text-sm text-gray-600">
-                {isConnected ? 'Connected' : 'Offline'}
+                {isConnected ? t('common.connected') : t('common.offline')}
               </span>
             </div>
-            {displayUsername !== 'Guest' && currentUserId && (
+            <LanguageSwitcher />
+            {displayUsername !== t('common.guest') && currentUserId && (
               <button
                 onClick={() => setShowWallet(true)}
                 className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                title="Pix Wallet"
+                title={t('wallet.title')}
               >
                 <Wallet className="w-4 h-4" />
-                <span className="hidden sm:inline">Wallet</span>
+                <span className="hidden sm:inline">{t('header.wallet')}</span>
               </button>
             )}
-            {displayUsername !== 'Guest' && (
+            {displayUsername !== t('common.guest') && (
               <button
                 onClick={handleLogout}
                 className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                title="Logout"
+                title={t('common.logout')}
               >
                 <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Logout</span>
+                <span className="hidden sm:inline">{t('common.logout')}</span>
               </button>
             )}
           </div>

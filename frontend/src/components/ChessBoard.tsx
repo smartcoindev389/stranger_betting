@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { emitMove, getSocket, emitPawnPromotion } from '../utils/socket';
 
 // Import chess piece images
@@ -56,6 +57,7 @@ const PIECE_IMAGES: Record<string, Record<string, string>> = {
 };
 
 export default function ChessBoard({ gameState, playerTeam, isMyTurn, players, currentUserId }: ChessBoardProps) {
+  const { t } = useTranslation();
   const [selectedPiece, setSelectedPiece] = useState<ChessPiece | null>(null);
   const [possibleMoves, setPossibleMoves] = useState<Array<{ x: number; y: number }>>([]);
   const [promotionPosition, setPromotionPosition] = useState<{ x: number; y: number } | null>(null);
@@ -250,20 +252,20 @@ export default function ChessBoard({ gameState, playerTeam, isMyTurn, players, c
   };
 
   const getOpponentUsername = () => {
-    if (!currentUserId || !players || players.length < 2) return 'Opponent';
+    if (!currentUserId || !players || players.length < 2) return t('common.opponent');
     const opponent = players.find((p) => p.id !== currentUserId);
-    return opponent?.username || 'Opponent';
+    return opponent?.username || t('common.opponent');
   };
 
   const getStatusMessage = () => {
     const opponentUsername = getOpponentUsername();
     if (gameState.winningTeam) {
-      return `Winner: ${gameState.winningTeam === playerTeam ? 'You' : opponentUsername}!`;
+      return `${t('game.winner')} ${gameState.winningTeam === playerTeam ? t('common.you') : opponentUsername}!`;
     }
     if (isMyTurn) {
-      return 'Your turn';
+      return t('game.yourTurn');
     }
-    return `${opponentUsername}'s turn`;
+    return t('game.opponentTurn', { username: opponentUsername });
   };
 
   const renderSquare = (x: number, y: number) => {
@@ -302,10 +304,10 @@ export default function ChessBoard({ gameState, playerTeam, isMyTurn, players, c
       <div className="mb-4 text-center">
         <p className="text-xl font-semibold text-gray-800">{getStatusMessage()}</p>
         <p className="text-sm text-gray-600 mt-1">
-          You are: {playerTeam === 'w' ? 'White (Bottom)' : 'Black (Top)'} | Turn: {gameState.totalTurns}
+          {t('game.youAre')} {playerTeam === 'w' ? t('game.whiteBottom') : t('game.blackTop')} | {t('game.turn')} {gameState.totalTurns}
         </p>
       </div>
-      <div className="grid grid-cols-8 gap-0 border-4 border-gray-800 rounded-lg overflow-hidden shadow-2xl">
+      <div className="grid grid-cols-8 gap-0 overflow-hidden shadow-2xl">
         {Array.from({ length: 64 }).map((_, index) => {
           const x = index % 8;
           const y = Math.floor(index / 8);
@@ -320,8 +322,8 @@ export default function ChessBoard({ gameState, playerTeam, isMyTurn, players, c
       {promotionPosition && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 shadow-xl">
-            <h3 className="text-xl font-bold mb-4 text-center">Promote Pawn</h3>
-            <p className="text-sm text-gray-600 mb-4 text-center">Choose a piece to promote your pawn to:</p>
+            <h3 className="text-xl font-bold mb-4 text-center">{t('game.promotion.promotePawn')}</h3>
+            <p className="text-sm text-gray-600 mb-4 text-center">{t('game.promotion.choosePiece')}</p>
             <div className="grid grid-cols-4 gap-4">
               {['queen', 'rook', 'bishop', 'knight'].map((pieceType) => (
                 <button

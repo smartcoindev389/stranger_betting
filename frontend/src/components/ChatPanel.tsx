@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Send } from 'lucide-react';
 
 interface Message {
@@ -15,6 +16,7 @@ interface ChatPanelProps {
 }
 
 export default function ChatPanel({ onSendMessage, messages }: ChatPanelProps) {
+  const { t } = useTranslation();
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -43,13 +45,13 @@ export default function ChatPanel({ onSendMessage, messages }: ChatPanelProps) {
   return (
     <div className="bg-white rounded-2xl shadow-lg flex flex-col h-[500px]">
       <div className="p-4 border-b border-gray-200">
-        <h3 className="font-semibold text-gray-800">Chat</h3>
+        <h3 className="font-semibold text-gray-800">{t('chat.title')}</h3>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 ? (
           <div className="text-center text-gray-400 text-sm mt-8">
-            No messages yet. Start chatting!
+            {t('chat.noMessages')}
           </div>
         ) : (
           messages.map((msg) => (
@@ -82,7 +84,7 @@ export default function ChatPanel({ onSendMessage, messages }: ChatPanelProps) {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Type a message..."
+            placeholder={t('chat.typeMessage')}
             className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
           <button

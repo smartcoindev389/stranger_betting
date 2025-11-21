@@ -1,4 +1,5 @@
 import { Users, Clock, Trophy } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import ReportUser from './ReportUser';
 
 interface Player {
@@ -25,16 +26,17 @@ export default function GameInfoPanel({
   gameOver,
   currentUserId,
 }: GameInfoPanelProps) {
+  const { t } = useTranslation();
   const getGameName = () => {
     switch (gameType) {
       case 'tic-tac-toe':
-        return 'Tic-Tac-Toe';
+        return t('game.ticTacToe');
       case 'checkers':
-        return 'Checkers';
+        return t('game.checkers');
       case 'chess':
-        return 'Chess';
+        return t('game.chess');
       default:
-        return 'Game';
+        return t('game.game');
     }
   };
 
@@ -42,54 +44,54 @@ export default function GameInfoPanel({
     if (gameType === 'tic-tac-toe') {
       return `${player.username} (${index === 0 ? 'X' : 'O'})`;
     } else if (gameType === 'checkers') {
-      return `${player.username} (${index === 0 ? 'Player 1' : 'Player 2'})`;
+      return `${player.username} (${index === 0 ? t('game.player1') : t('game.player2')})`;
     } else if (gameType === 'chess') {
-      return `${player.username} (${index === 0 ? 'White' : 'Black'})`;
+      return `${player.username} (${index === 0 ? t('game.white') : t('game.black')})`;
     }
     return player.username;
   };
 
   const getOpponentUsername = () => {
-    if (!currentUserId || players.length < 2) return 'Opponent';
+    if (!currentUserId || players.length < 2) return t('common.opponent');
     const opponent = players.find((p) => p.id !== currentUserId);
-    return opponent?.username || 'Opponent';
+    return opponent?.username || t('common.opponent');
   };
 
   const getGameStatus = () => {
     // Check if we have less than 2 players
     if (players.length < 2) {
-      return 'Waiting for another player...';
+      return t('game.waitingForPlayer');
     }
     if (!gameState) {
-      return 'Waiting for game to start...';
+      return t('game.waitingForGameStart');
     }
     if (gameOver) {
       if (gameState?.winner || gameState?.winningTeam) {
         const winner = gameState.winner || gameState.winningTeam;
         const opponentUsername = getOpponentUsername();
-        return `Game Over - ${winner === playerTeam ? 'You Win!' : `${opponentUsername} Wins!`}`;
+        return `${t('game.gameOver')} - ${winner === playerTeam ? t('game.youWin') : t('game.opponentWins', { username: opponentUsername })}`;
       }
       if (gameState?.isDraw) {
-        return 'Game Over - Draw!';
+        return t('game.gameOverDraw');
       }
-      return 'Game Over';
+      return t('game.gameOver');
     }
     if (isMyTurn) {
-      return 'Your Turn';
+      return t('game.yourTurn');
     }
     const opponentUsername = getOpponentUsername();
-    return `${opponentUsername}'s Turn`;
+    return t('game.opponentTurn', { username: opponentUsername });
   };
 
   const getCurrentPlayerInfo = () => {
     if (!gameState) return null;
     
     if (gameType === 'tic-tac-toe') {
-      return `Current Player: ${gameState.currentPlayer}`;
+      return `${t('game.currentPlayer')} ${gameState.currentPlayer}`;
     } else if (gameType === 'checkers') {
-      return `Current Player: ${gameState.currentPlayer === 'player1' ? 'Player 1' : 'Player 2'}`;
+      return `${t('game.currentPlayer')} ${gameState.currentPlayer === 'player1' ? t('game.player1') : t('game.player2')}`;
     } else if (gameType === 'chess') {
-      return `Current Team: ${gameState.currentTeam === 'w' ? 'White' : 'Black'}`;
+      return `${t('game.currentTeam')} ${gameState.currentTeam === 'w' ? t('game.white') : t('game.black')}`;
     }
     return null;
   };
@@ -111,11 +113,11 @@ export default function GameInfoPanel({
           <p className="text-sm text-gray-600 mt-1">{getCurrentPlayerInfo()}</p>
         )}
         {gameType === 'chess' && gameState?.totalTurns && (
-          <p className="text-xs text-gray-500 mt-1">Turn: {gameState.totalTurns}</p>
+          <p className="text-xs text-gray-500 mt-1">{t('game.turn')} {gameState.totalTurns}</p>
         )}
         {players.length < 2 && (
           <p className="text-xs text-gray-500 mt-2 italic">
-            Moves disabled until both players join
+            {t('game.movesDisabled')}
           </p>
         )}
       </div>
@@ -124,7 +126,7 @@ export default function GameInfoPanel({
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-4">
           <Users className="w-5 h-5 text-gray-600" />
-          <h4 className="font-semibold text-gray-800">Players</h4>
+          <h4 className="font-semibold text-gray-800">{t('game.players')}</h4>
         </div>
         <div className="space-y-3">
           {players.map((player, index) => {
@@ -150,7 +152,7 @@ export default function GameInfoPanel({
                   <div className="flex items-center gap-2">
                     {isCurrentPlayer && (
                       <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded-full">
-                        You
+                        {t('common.you')}
                       </span>
                     )}
                     {!isCurrentPlayer && currentUserId && player.id !== currentUserId && (
@@ -171,9 +173,9 @@ export default function GameInfoPanel({
       {gameState && (
         <div className="pt-4 border-t border-gray-200">
           <div className="text-xs text-gray-500 space-y-1">
-            <p>Game Type: {getGameName()}</p>
+            <p>{t('game.gameType')} {getGameName()}</p>
             {gameType === 'chess' && gameState?.totalTurns && (
-              <p>Total Turns: {gameState.totalTurns}</p>
+              <p>{t('game.totalTurns')} {gameState.totalTurns}</p>
             )}
           </div>
         </div>

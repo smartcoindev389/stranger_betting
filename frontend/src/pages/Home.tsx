@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Circle, Square, Crown, Users, Hash } from 'lucide-react';
+import { Circle, Square, Crown, Users } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import Header from '../components/Header';
 import { getSocket, connectSocket } from '../utils/socket';
 import { useNotification } from '../contexts/NotificationContext';
@@ -13,7 +14,7 @@ interface HomeProps {
 }
 
 export default function Home({ onNavigate, isConnected, username: propUsername, onLogout, userId }: HomeProps) {
-  const [keyword, setKeyword] = useState('');
+  const { t } = useTranslation();
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
   const [username, setUsername] = useState('');
   const [showUsernameForm, setShowUsernameForm] = useState(false);
@@ -35,35 +36,35 @@ export default function Home({ onNavigate, isConnected, username: propUsername, 
   const games = [
     {
       id: 'tic-tac-toe',
-      name: 'Tic-Tac-Toe',
+      name: t('home.games.ticTacToe.name'),
       icon: Circle,
       color: 'from-blue-500 to-cyan-500',
-      description: 'Classic 3x3 strategy game',
+      description: t('home.games.ticTacToe.description'),
     },
     {
       id: 'checkers',
-      name: 'Checkers',
+      name: t('home.games.checkers.name'),
       icon: Square,
       color: 'from-red-500 to-orange-500',
-      description: 'Jump and capture pieces',
+      description: t('home.games.checkers.description'),
     },
     {
       id: 'chess',
-      name: 'Chess',
+      name: t('home.games.chess.name'),
       icon: Crown,
       color: 'from-purple-500 to-pink-500',
-      description: 'Strategic board game',
+      description: t('home.games.chess.description'),
     },
   ];
 
   const handleSetUsername = async () => {
     if (!username.trim() || username.length < 3 || username.length > 20) {
-      showNotification('Username must be between 3 and 20 characters', 'warning');
+      showNotification(t('home.usernameLengthError'), 'warning');
       return;
     }
 
     if (!userId) {
-      showNotification('User ID not found', 'error');
+      showNotification(t('home.userIdNotFound'), 'error');
       return;
     }
 
@@ -80,7 +81,7 @@ export default function Home({ onNavigate, isConnected, username: propUsername, 
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to set username');
+        throw new Error(error.error || t('home.failedToSetUsername'));
       }
 
       // Connect user via socket after setting username
@@ -90,21 +91,21 @@ export default function Home({ onNavigate, isConnected, username: propUsername, 
         socket.once('connected', (data: { userId: string; username: string }) => {
           // Store display_username (second username) in localStorage
           localStorage.setItem('displayUsername', data.username);
-          showNotification('Username updated successfully!', 'success');
+          showNotification(t('home.usernameUpdated'), 'success');
           setIsUsernameSet(true);
           setShowUsernameForm(false); // Hide form after successful update
         });
       } else {
-        showNotification('Failed to connect to server', 'error');
+        showNotification(t('home.failedToConnect'), 'error');
       }
     } catch (error: any) {
-      showNotification(error.message || 'Failed to set username', 'error');
+      showNotification(error.message || t('home.failedToSetUsername'), 'error');
     }
   };
 
   const handleRandomMatch = (gameType: string) => {
     if (!isUsernameSet) {
-      showNotification('Please set your username first', 'warning');
+      showNotification(t('home.usernameRequired'), 'warning');
       return;
     }
     setSelectedGame(gameType);
@@ -155,49 +156,7 @@ export default function Home({ onNavigate, isConnected, username: propUsername, 
       socket.emit('join_random', { gameType: backendGameType });
     } else {
       console.error('Socket is null!');
-      showNotification('Not connected to server. Please refresh the page.', 'error');
-    }
-  };
-
-  const handleJoinByKeyword = () => {
-    if (!isUsernameSet) {
-      showNotification('Please set your username first', 'warning');
-      return;
-    }
-    if (keyword.trim() && selectedGame) {
-      const backendGameType = selectedGame.replace(/-/g, '_');
-      const socket = getSocket();
-      if (socket) {
-        const handleGameStart = (data: any) => {
-          console.log('Game started:', data);
-          socket.off('game_start', handleGameStart);
-          socket.off('waiting_for_player', handleWaiting);
-          socket.off('error', handleError);
-          onNavigate('game-room', { gameType: selectedGame, roomId: data.roomId });
-        };
-        
-        const handleWaiting = (data: any) => {
-          console.log('Waiting for player:', data);
-          socket.off('game_start', handleGameStart);
-          socket.off('waiting_for_player', handleWaiting);
-          socket.off('error', handleError);
-          onNavigate('game-room', { gameType: selectedGame, roomId: data.roomId });
-        };
-        
-        const handleError = (error: any) => {
-          console.error('Error joining room:', error);
-          showNotification(error.message || 'Failed to join room', 'error');
-          socket.off('game_start', handleGameStart);
-          socket.off('waiting_for_player', handleWaiting);
-          socket.off('error', handleError);
-        };
-        
-        socket.on('game_start', handleGameStart);
-        socket.on('waiting_for_player', handleWaiting);
-        socket.on('error', handleError);
-        
-        socket.emit('join_keyword', { gameType: backendGameType, keyword: keyword.trim() });
-      }
+      showNotification(t('home.notConnected'), 'error');
     }
   };
 
@@ -209,17 +168,17 @@ export default function Home({ onNavigate, isConnected, username: propUsername, 
           <div className="max-w-md mx-auto mt-20">
             <div className="bg-white rounded-2xl shadow-lg p-8">
               <h2 className="text-3xl font-bold text-gray-900 mb-4 text-center">
-                Welcome!
+                {t('home.welcomeTitle')}
               </h2>
               <p className="text-gray-600 mb-6 text-center">
-                Enter your username to get started
+                {t('home.enterUsername')}
               </p>
               <div className="space-y-4">
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter your username"
+                  placeholder={t('home.usernamePlaceholder')}
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   onKeyPress={(e) => e.key === 'Enter' && handleSetUsername()}
                 />
@@ -228,7 +187,7 @@ export default function Home({ onNavigate, isConnected, username: propUsername, 
                   disabled={!username.trim() || !isConnected}
                   className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-cyan-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isConnected ? 'Continue' : 'Connecting...'}
+                  {isConnected ? t('common.continue') : t('common.connecting')}
                 </button>
               </div>
             </div>
@@ -250,7 +209,7 @@ export default function Home({ onNavigate, isConnected, username: propUsername, 
               onClick={() => setShowUsernameForm(!showUsernameForm)}
               className="text-sm text-blue-600 hover:text-blue-700 font-medium"
             >
-              {showUsernameForm ? 'Hide' : 'Change'} Username
+              {showUsernameForm ? t('home.hideUsername') : t('home.changeUsername')}
             </button>
           </div>
         )}
@@ -259,17 +218,17 @@ export default function Home({ onNavigate, isConnected, username: propUsername, 
           <div className="max-w-md mx-auto mb-8">
             <div className="bg-white rounded-2xl shadow-lg p-6">
               <h3 className="text-xl font-bold text-gray-900 mb-4 text-center">
-                Change Your Username
+                {t('home.updateUsername')}
               </h3>
               <p className="text-gray-600 mb-4 text-center text-sm">
-                Update your display username for rooms and chat
+                {t('home.updateUsernameDescription')}
               </p>
               <div className="space-y-4">
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter new username (3-20 characters)"
+                  placeholder={t('home.usernamePlaceholderNew')}
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   onKeyPress={(e) => e.key === 'Enter' && handleSetUsername()}
                   maxLength={20}
@@ -280,7 +239,7 @@ export default function Home({ onNavigate, isConnected, username: propUsername, 
                     disabled={!username.trim() || username.length < 3 || !isConnected}
                     className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-500 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-cyan-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isConnected ? 'Update Username' : 'Connecting...'}
+                    {isConnected ? t('home.updateUsername') : t('common.connecting')}
                   </button>
                   <button
                     onClick={() => {
@@ -289,11 +248,11 @@ export default function Home({ onNavigate, isConnected, username: propUsername, 
                     }}
                     className="px-4 py-3 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 transition-colors"
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                 </div>
                 <p className="text-xs text-gray-500 text-center">
-                  {username.length}/20 characters
+                  {username.length}/20 {t('home.characters')}
                 </p>
               </div>
             </div>
@@ -302,10 +261,10 @@ export default function Home({ onNavigate, isConnected, username: propUsername, 
 
         <div className="text-center mb-16 animate-fade-in">
           <h2 className="text-5xl font-bold text-gray-900 mb-4">
-            Play, Chat, and Compete
+            {t('home.playChatCompete')}
           </h2>
           <p className="text-xl text-gray-600">
-            Join friends or challenge random opponents in real-time
+            {t('home.joinFriends')}
           </p>
         </div>
 
@@ -340,7 +299,7 @@ export default function Home({ onNavigate, isConnected, username: propUsername, 
               <div className="flex items-center gap-3 mb-6">
                 <Users className="w-6 h-6 text-blue-600" />
                 <h3 className="text-2xl font-bold text-gray-900">
-                  Connect to Match
+                  {t('home.connectToMatch')}
                 </h3>
               </div>
 
@@ -348,52 +307,10 @@ export default function Home({ onNavigate, isConnected, username: propUsername, 
                 onClick={() => handleRandomMatch(selectedGame)}
                 className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white py-4 rounded-xl font-semibold text-lg hover:from-blue-700 hover:to-cyan-600 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl mb-6"
               >
-                Play Random Match
+                {t('home.playRandomMatch')}
               </button>
 
-              <div className="relative mb-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-4 bg-white text-gray-500">or</span>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <Hash className="w-6 h-6 text-gray-400" />
-                  <h4 className="text-lg font-semibold text-gray-900">
-                    Join by Keyword
-                  </h4>
-                </div>
-
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    value={keyword}
-                    onChange={(e) => setKeyword(e.target.value)}
-                    placeholder="Enter room keyword..."
-                    className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    onKeyPress={(e) => e.key === 'Enter' && handleJoinByKeyword()}
-                  />
-                  <button
-                    onClick={handleJoinByKeyword}
-                    disabled={!keyword.trim()}
-                    className="px-8 py-3 bg-gray-900 text-white rounded-xl font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Join
-                  </button>
-                </div>
-              </div>
             </div>
-
-            <button
-              onClick={() => onNavigate('lobby')}
-              className="w-full bg-white text-gray-900 py-4 rounded-xl font-semibold text-lg border-2 border-gray-300 hover:border-blue-500 hover:text-blue-600 transition-all duration-300"
-            >
-              View Active Rooms
-            </button>
           </div>
         )}
       </main>

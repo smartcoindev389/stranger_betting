@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { emitMove } from '../utils/socket';
 
 interface CheckersBoardProps {
@@ -15,6 +16,7 @@ interface CheckersBoardProps {
 }
 
 export default function CheckersBoard({ gameState, playerTeam, isMyTurn, players, currentUserId }: CheckersBoardProps) {
+  const { t } = useTranslation();
   const [selectedPiece, setSelectedPiece] = useState<{ x: number; y: number } | null>(null);
   const [possibleMoves, setPossibleMoves] = useState<Array<{ x: number; y: number }>>([]);
 
@@ -81,29 +83,29 @@ export default function CheckersBoard({ gameState, playerTeam, isMyTurn, players
   };
 
   const getOpponentUsername = () => {
-    if (!currentUserId || !players || players.length < 2) return 'Opponent';
+    if (!currentUserId || !players || players.length < 2) return t('common.opponent');
     const opponent = players.find((p) => p.id !== currentUserId);
-    return opponent?.username || 'Opponent';
+    return opponent?.username || t('common.opponent');
   };
 
   const getStatusMessage = () => {
     const opponentUsername = getOpponentUsername();
     if (gameState.winner) {
-      return `Winner: ${gameState.winner === playerTeam ? 'You' : opponentUsername}!`;
+      return `${t('game.winner')} ${gameState.winner === playerTeam ? t('common.you') : opponentUsername}!`;
     }
     if (isMyTurn) {
-      return 'Your turn';
+      return t('game.yourTurn');
     }
-    return `${opponentUsername}'s turn`;
+    return t('game.opponentTurn', { username: opponentUsername });
   };
 
   return (
     <div className="flex flex-col items-center justify-center p-6">
       <div className="mb-4 text-center">
         <p className="text-xl font-semibold text-gray-800">{getStatusMessage()}</p>
-        <p className="text-sm text-gray-600 mt-1">You are: {playerTeam === 'player1' ? 'Player 1 (Bottom)' : 'Player 2 (Top)'}</p>
+        <p className="text-sm text-gray-600 mt-1">{t('game.youAre')} {playerTeam === 'player1' ? t('game.player1Bottom') : t('game.player2Top')}</p>
       </div>
-      <div className="grid grid-cols-8 gap-0 border-4 border-gray-800 rounded-lg overflow-hidden shadow-2xl">
+      <div className="grid grid-cols-8 gap-0 overflow-hidden shadow-2xl">
         {Array.from({ length: 64 }).map((_, index) => {
           const x = index % 8;
           const y = Math.floor(index / 8);
