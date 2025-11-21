@@ -13,9 +13,10 @@ interface HeaderProps {
   isConnected: boolean;
   onLogout?: () => void;
   userId?: string;
+  onNavigate?: (page: string) => void;
 }
 
-export default function Header({ username, isConnected, onLogout, userId }: HeaderProps) {
+export default function Header({ username, isConnected, onLogout, userId, onNavigate }: HeaderProps) {
   const { t } = useTranslation();
   // Get display_username (second username) from localStorage or props, fallback to first username
   const displayUsername = username || localStorage.getItem('displayUsername') || localStorage.getItem('username') || t('common.guest');
@@ -50,13 +51,27 @@ export default function Header({ username, isConnected, onLogout, userId }: Head
     }
   };
 
+  const handleLogoClick = () => {
+    if (onNavigate) {
+      onNavigate('home');
+    } else {
+      // Fallback: use window location
+      window.location.href = '/';
+    }
+  };
+
   return (
     <>
     <header className="bg-white/90 backdrop-blur-sm shadow-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src={logo} alt="Logo" className="h-10 w-auto" />
+            <img 
+              src={logo} 
+              alt="Logo" 
+              className="h-10 w-auto cursor-pointer hover:opacity-80 transition-opacity" 
+              onClick={handleLogoClick}
+            />
           </div>
 
           <div className="flex items-center gap-4">

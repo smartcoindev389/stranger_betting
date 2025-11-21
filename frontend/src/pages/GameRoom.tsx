@@ -524,7 +524,7 @@ export default function GameRoom({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
-      <Header isConnected={isConnected} username={username} onLogout={onLogout} userId={userId} />
+      <Header isConnected={isConnected} username={username} onLogout={onLogout} userId={userId} onNavigate={onNavigate} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {isWaiting && players.length > 0 && players.length < 2 && (

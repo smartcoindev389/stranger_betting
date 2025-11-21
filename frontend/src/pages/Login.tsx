@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useNotification } from '../contexts/NotificationContext';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import logo from '../assets/home_logo.png';
+import logoFallback from '../assets/home_logo.png';
 
 interface LoginProps {
   onAuthSuccess: (userId: string, username: string) => void;
@@ -93,7 +94,17 @@ export default function Login({ onAuthSuccess }: LoginProps) {
       <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full mx-4">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-6">
-            <img src={logo} alt="Logo" className="h-24 w-auto" />
+            <img 
+              src={logo} 
+              alt="Logo" 
+              className="h-24 w-auto" 
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                if (target.src !== logoFallback) {
+                  target.src = logoFallback;
+                }
+              }}
+            />
           </div>
           <h1 className="text-4xl font-bold text-gray-900 mb-2">{t('common.welcome')}</h1>
           <p className="text-gray-600">{t('auth.signInPrompt')}</p>

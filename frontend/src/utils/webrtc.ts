@@ -39,6 +39,12 @@ export const startVideo = async (): Promise<MediaStream> => {
       video: true,
       audio: true,
     });
+    // Disable audio track by default - user must click mic button to enable
+    if (localStream) {
+      localStream.getAudioTracks().forEach((track) => {
+        track.enabled = false;
+      });
+    }
     return localStream;
   } catch (error) {
     // Don't log here - let the caller handle the error and show user-friendly message

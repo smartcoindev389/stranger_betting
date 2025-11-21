@@ -8,24 +8,24 @@ interface DBConfig {
   port?: number;
   ssl?: mysql.SslOptions;
   connectTimeout?: number;
-  acquireTimeout?: number;
-  timeout?: number;
 }
 
+// Fix common typo: 127.0.0.0.1 -> 127.0.0.1
+const fixHostAddress = (host: string): string => {
+  if (host === "127.0.0.0.1") {
+    return "127.0.0.1";
+  }
+  return host;
+};
+
 const config: DBConfig = {
-  host: process.env.DB_HOST || "localhost",
+  host: fixHostAddress(process.env.DB_HOST || "localhost"),
   user: process.env.DB_USER || "root",
   password: process.env.DB_PASSWORD || "",
   database: process.env.DB_NAME || "real_skills",
   port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 3306,
   connectTimeout: process.env.DB_CONNECT_TIMEOUT
     ? parseInt(process.env.DB_CONNECT_TIMEOUT, 10)
-    : 60000,
-  acquireTimeout: process.env.DB_ACQUIRE_TIMEOUT
-    ? parseInt(process.env.DB_ACQUIRE_TIMEOUT, 10)
-    : 60000,
-  timeout: process.env.DB_TIMEOUT
-    ? parseInt(process.env.DB_TIMEOUT, 10)
     : 60000,
 };
 

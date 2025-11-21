@@ -21,7 +21,7 @@ export default function VideoPanel({
 }: VideoPanelProps) {
   const { showNotification } = useNotification();
   const [isVideoOn, setIsVideoOn] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true); // Start muted by default
   const [hasRemoteVideo, setHasRemoteVideo] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false); // Prevent double-clicks
