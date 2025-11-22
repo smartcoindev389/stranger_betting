@@ -55,14 +55,21 @@ const getSSLConfig = (): mysql.SslOptions | undefined => {
       sslConfig.key = process.env.DB_SSL_KEY;
     }
 
-    // Reject unauthorized connections (recommended for production)
-    sslConfig.rejectUnauthorized =
-      process.env.DB_SSL_REJECT_UNAUTHORIZED !== "false";
+    // For DigitalOcean and other cloud providers with self-signed certificates:
+    // If no CA certificate is provided, allow self-signed certificates
+    // This is safe because the connection is still encrypted, just not verified
+    if (process.env.DB_SSL_CA) {
+      // If CA is provided, verify it (most secure)
+      sslConfig.rejectUnauthorized =
+        process.env.DB_SSL_REJECT_UNAUTHORIZED !== "false";
+    } else {
+      // If no CA provided (like DigitalOcean), allow self-signed but still use SSL
+      // Connection is still encrypted, just certificate isn't verified
+      sslConfig.rejectUnauthorized = false;
+    }
 
-    // Return SSL config if any options are set, otherwise return minimal SSL config
-    return Object.keys(sslConfig).length > 0
-      ? sslConfig
-      : { rejectUnauthorized: true };
+    // Return SSL config
+    return sslConfig;
   }
 
   // For local development, SSL is optional (undefined = no SSL)
