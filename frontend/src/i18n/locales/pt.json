@@ -153,6 +153,8 @@
     "needTwoPlayers": "São necessários 2 jogadores para alterar o valor da aposta",
     "amountMustBeGreater": "O valor da aposta deve ser maior que 0",
     "insufficientBalance": "Saldo insuficiente",
+    "noMatchingProposal": "Nenhuma proposta correspondente encontrada",
+    "playerInsufficientBalance": "{{username}} não tem saldo suficiente",
     "newBettingProposal": "Nova proposta de aposta: {{amount}} BRL",
     "bettingLockedAt": "Aposta bloqueada em {{amount}} BRL",
     "bettingProposalRejected": "Proposta de aposta foi rejeitada",
@@ -287,7 +289,13 @@
     "errorPrefix": "Erro:",
     "failedToJoinRoom": "Falha ao entrar na sala",
     "rematch": "Revanche",
-    "exitRoom": "Sair da Sala"
+    "exitRoom": "Sair da Sala",
+    "insufficientBalanceToStartSingle": "O jogo não pode começar: {{players}} não tem saldo suficiente (R$ {{amount}} necessário). Por favor, carregue seu saldo para iniciar o jogo.",
+    "insufficientBalanceToStartMultiple": "O jogo não pode começar: {{players}} não têm saldo suficiente (R$ {{amount}} necessário). Por favor, carregue seu saldo para iniciar o jogo.",
+    "insufficientBalanceGeneric": "O jogo não pode começar: saldo insuficiente. Por favor, carregue seu saldo para iniciar o jogo.",
+    "insufficientBalance": "Saldo insuficiente",
+    "rematchInsufficientBalanceSingle": "A revanche não pode começar: {{players}} não tem saldo suficiente (R$ {{amount}} necessário).",
+    "rematchInsufficientBalanceMultiple": "A revanche não pode começar: {{players}} não têm saldo suficiente (R$ {{amount}} necessário)."
   },
   "authCallback": {
     "title": "Escolha Seu Nome de Usuário",

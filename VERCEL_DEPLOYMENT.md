@@ -84,7 +84,7 @@ Railway supports persistent connections needed for Socket.io.
    DB_HOST=your-database-host
    DB_USER=your-database-user
    DB_PASSWORD=your-database-password
-   DB_NAME=real_skills
+   DB_NAME=chat_maer
    JWT_SECRET=your-jwt-secret
    SESSION_SECRET=your-session-secret
    CLIENT_URL=https://your-frontend.vercel.app
@@ -214,7 +214,7 @@ const SOCKET_URL = import.meta.env.VITE_API_URL || 'https://your-backend.railway
 - `DB_HOST` - Database host
 - `DB_USER` - Database user
 - `DB_PASSWORD` - Database password
-- `DB_NAME=real_skills`
+- `DB_NAME=chat_maer`
 - `JWT_SECRET` - Strong random secret
 - `SESSION_SECRET` - Strong random secret
 - `CLIENT_URL` - Your Vercel frontend URL

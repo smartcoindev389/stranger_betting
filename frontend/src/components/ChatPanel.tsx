@@ -19,9 +19,12 @@ export default function ChatPanel({ onSendMessage, messages }: ChatPanelProps) {
   const { t } = useTranslation();
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
   };
 
   useEffect(() => {
@@ -39,7 +42,9 @@ export default function ChatPanel({ onSendMessage, messages }: ChatPanelProps) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       e.stopPropagation();
+      e.nativeEvent.stopImmediatePropagation();
       handleSend();
+      return false;
     }
   };
 
@@ -49,7 +54,7 @@ export default function ChatPanel({ onSendMessage, messages }: ChatPanelProps) {
         <h3 className="font-semibold text-gray-800">{t('chat.title')}</h3>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 ? (
           <div className="text-center text-gray-400 text-sm mt-8">
             {t('chat.noMessages')}
@@ -82,7 +87,9 @@ export default function ChatPanel({ onSendMessage, messages }: ChatPanelProps) {
         <form 
           onSubmit={(e) => {
             e.preventDefault();
+            e.stopPropagation();
             handleSend();
+            return false;
           }}
           className="flex gap-2 items-center"
         >

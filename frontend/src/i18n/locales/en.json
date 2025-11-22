@@ -153,6 +153,8 @@
     "needTwoPlayers": "Need 2 players to change betting amount",
     "amountMustBeGreater": "Betting amount must be greater than 0",
     "insufficientBalance": "Insufficient balance",
+    "noMatchingProposal": "No matching proposal found",
+    "playerInsufficientBalance": "{{username}} has insufficient balance",
     "newBettingProposal": "New betting proposal: {{amount}} BRL",
     "bettingLockedAt": "Betting locked at {{amount}} BRL",
     "bettingProposalRejected": "Betting proposal was rejected",
@@ -287,7 +289,13 @@
     "errorPrefix": "Error:",
     "failedToJoinRoom": "Failed to join room",
     "rematch": "Rematch",
-    "exitRoom": "Exit Room"
+    "exitRoom": "Exit Room",
+    "insufficientBalanceToStartSingle": "Game cannot start: {{players}} does not have sufficient balance (R$ {{amount}} required). Please charge your balance to start the game.",
+    "insufficientBalanceToStartMultiple": "Game cannot start: {{players}} do not have sufficient balance (R$ {{amount}} required). Please charge your balance to start the game.",
+    "insufficientBalanceGeneric": "Game cannot start: insufficient balance. Please charge your balance to start the game.",
+    "insufficientBalance": "Insufficient balance",
+    "rematchInsufficientBalanceSingle": "Rematch cannot start: {{players}} does not have sufficient balance (R$ {{amount}} required).",
+    "rematchInsufficientBalanceMultiple": "Rematch cannot start: {{players}} do not have sufficient balance (R$ {{amount}} required)."
   },
   "authCallback": {
     "title": "Choose Your Username",

@@ -13,13 +13,13 @@ cd betting
 
 1. **Create MySQL Database**:
    ```sql
-   CREATE DATABASE real_skills;
+   CREATE DATABASE chat_maer;
    ```
 
 2. **Run the Schema**:
    ```bash
    # Connect to MySQL and run the schema file
-   mysql -u root -p real_skills < backend/src/db/schema.sql
+   mysql -u root -p chat_maer < backend/src/db/schema.sql
    ```
    
    Or manually execute the SQL file in your MySQL client:
@@ -50,7 +50,7 @@ cd betting
    DB_HOST=localhost
    DB_USER=root
    DB_PASSWORD=your_mysql_password
-   DB_NAME=real_skills
+   DB_NAME=chat_maer
 
    # JWT Secret (generate a strong random string)
    JWT_SECRET=your-very-secure-random-secret-key
@@ -141,7 +141,7 @@ cd betting
 | `DB_HOST` | MySQL host | No | localhost |
 | `DB_USER` | MySQL username | No | root |
 | `DB_PASSWORD` | MySQL password | Yes | - |
-| `DB_NAME` | Database name | No | real_skills |
+| `DB_NAME` | Database name | No | chat_maer |
 | `JWT_SECRET` | Secret for JWT tokens | Yes | - |
 | `JWT_EXPIRES_IN` | JWT expiration time | No | 7d |
 | `SESSION_SECRET` | Session secret | Yes | - |
@@ -245,7 +245,7 @@ See `backend/src/db/schema.sql` for the complete schema.
 ### Database Connection Issues
 - Verify MySQL is running: `mysql -u root -p`
 - Check database credentials in `backend/.env`
-- Ensure database exists: `CREATE DATABASE real_skills;`
+- Ensure database exists: `CREATE DATABASE chat_maer;`
 
 ### Port Already in Use
 - Change `PORT` in `backend/.env` if 3001 is taken
