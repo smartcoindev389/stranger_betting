@@ -9,6 +9,7 @@ import { startVideo, closePeerConnection } from './utils/webrtc';
 import { NotificationProvider, useNotification } from './contexts/NotificationContext';
 import NotificationContainer from './components/Notification';
 import { clearAuth } from './utils/api';
+import { API_ENDPOINTS } from './config/api';
 
 type Page = 'home' | 'game-room' | 'lobby' | 'login' | 'admin';
 
@@ -48,8 +49,7 @@ function AppContent() {
 
     if (storedToken && storedUserId && storedUsername) {
       // Verify token is still valid
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      fetch(`${API_URL}/api/auth/verify`, {
+      fetch(API_ENDPOINTS.AUTH.VERIFY, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,4 +1,5 @@
 import { io, Socket } from 'socket.io-client';
+import { getSocketUrl } from '../config/api';
 
 // We'll export a function to set the notification handler
 let notificationHandler: ((message: string, type?: 'error' | 'success' | 'info' | 'warning') => void) | null = null;
@@ -18,19 +19,8 @@ const showNotification = (message: string, type: 'error' | 'success' | 'info' | 
 
 let socket: Socket | null = null;
 
-// Get backend URL from environment variable, fallback to localhost for development
-const getBackendUrl = (): string => {
-  const apiUrl = import.meta.env.VITE_API_URL;
-  if (apiUrl) {
-    // Remove /api suffix if present, Socket.io connects to root
-    return apiUrl.replace(/\/api$/, '');
-  }
-  // Default to localhost for development
-  return 'http://localhost:3001';
-};
-
 export const connectSocket = (url?: string): Socket => {
-  const backendUrl = url || getBackendUrl();
+  const backendUrl = url || getSocketUrl();
   if (!socket || !socket.connected) {
     // If socket exists but is disconnected, clean it up first
     if (socket) {
@@ -99,7 +89,14 @@ export const connectSocket = (url?: string): Socket => {
     });
 
     socket.on('connect_error', (error) => {
-      console.error('Connection error:', error);
+      // Suppress common connection errors that are harmless during development
+      const suppressMessages = ['ECONNABORTED', 'ECONNRESET', 'xhr poll error'];
+      const shouldSuppress = suppressMessages.some(msg => 
+        error.message?.includes(msg) || error.toString().includes(msg)
+      );
+      if (!shouldSuppress) {
+        console.error('Connection error:', error);
+      }
     });
   }
 
