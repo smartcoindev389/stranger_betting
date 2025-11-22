@@ -64,15 +64,10 @@ function AppContent() {
             setUsername(data.username);
             setCurrentPage('home');
             
-            // Connect socket with token
+            // Connect socket with token (socket will auto-connect user on connect)
             const socket = connectSocket();
             socket.on('connect', () => {
               setIsConnected(true);
-              // Connect user with token
-              const socketInstance = getSocket();
-              if (socketInstance) {
-                socketInstance.emit('user_connect', { token: storedToken });
-              }
             });
           } else {
             // Token invalid or expired, clear storage

@@ -32,25 +32,44 @@ export const connectSocket = (url?: string): Socket => {
     // Get token from localStorage for authentication
     const token = localStorage.getItem('authToken');
     
-    socket = io(url, {
+    // Use backendUrl instead of url to ensure we always have a valid URL
+    socket = io(backendUrl, {
+      // Prioritize websocket for faster connection
       transports: ['websocket', 'polling'],
+      // Start connection immediately
       autoConnect: true,
+      // Faster reconnection settings
       reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
+      reconnectionDelay: 500, // Reduced from 1000ms
+      reconnectionDelayMax: 3000, // Reduced from 5000ms
       reconnectionAttempts: Infinity,
       auth: token ? { token } : undefined,
+      // Reduced timeout for faster failure detection
+      timeout: 10000, // Reduced from 20000ms
+      // Force new connection to avoid stale connections
+      forceNew: false,
+      // Upgrade immediately to websocket if available
+      upgrade: true,
     });
 
     socket.on('connect', () => {
       console.log('Connected to server:', socket?.id);
       
-      // If we have a token, automatically connect user
+      // If we have a token, automatically connect user immediately
       const currentToken = localStorage.getItem('authToken');
       if (currentToken) {
+        // Emit immediately without delay
         socket?.emit('user_connect', { token: currentToken });
       }
     });
+    
+    // Also try to connect immediately if socket is already connected
+    if (socket.connected) {
+      const currentToken = localStorage.getItem('authToken');
+      if (currentToken) {
+        socket.emit('user_connect', { token: currentToken });
+      }
+    }
 
     // Handle session termination (when logged in from another device)
     socket.on('session_terminated', (data: { message: string; reason: string }) => {
@@ -114,6 +133,11 @@ export const getSocket = (): Socket | null => {
   // If socket is null or disconnected, try to reconnect
   if (!socket || !socket.connected) {
     console.log('Socket is null or disconnected, reconnecting...');
+    // Don't recreate if socket exists but just disconnected - let reconnection handle it
+    if (socket && !socket.connected) {
+      // Socket exists but disconnected - return it and let auto-reconnect work
+      return socket;
+    }
     return connectSocket();
   }
   return socket;
