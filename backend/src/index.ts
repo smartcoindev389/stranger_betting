@@ -23,39 +23,29 @@ import "./controllers/passport.js";
 const app = express();
 const httpServer = createServer(app);
 
-// CORS configuration - allowed origins
 const allowedOrigins = [
   config.clientUrl,
   "http://localhost:3000",
   "http://localhost:5173",
   "http://127.0.0.1:3000",
   "http://127.0.0.1:5173",
-  // Add custom domains from environment variable
   ...config.allowedOrigins,
 ];
 
-// Helper function to check if origin is allowed
 const isOriginAllowed = (origin: string | undefined): boolean => {
-  // Allow requests with no origin (like mobile apps or curl requests)
   if (!origin) return true;
   
-  // Normalize origin (remove trailing slash and convert to lowercase for comparison)
   const normalizedOrigin = origin.replace(/\/$/, '').toLowerCase();
-  
-  // Check if origin is in the allowed list (exact match)
   const normalizedAllowedOrigins = allowedOrigins.map((o) => o.replace(/\/$/, '').toLowerCase());
   if (normalizedAllowedOrigins.includes(normalizedOrigin)) return true;
   
-  // Allow all Vercel domains (*.vercel.app) - for preview and production deployments
   if (normalizedOrigin.endsWith('.vercel.app')) return true;
   
-  // Allow custom domains from CLIENT_URL (exact match)
   if (config.clientUrl) {
     const clientUrlNormalized = config.clientUrl.replace(/\/$/, '').toLowerCase();
     if (normalizedOrigin === clientUrlNormalized) return true;
   }
   
-  // Check against custom domains from ALLOWED_ORIGINS environment variable (exact match)
   for (const allowedOrigin of config.allowedOrigins) {
     const allowedNormalized = allowedOrigin.replace(/\/$/, '').toLowerCase();
     if (normalizedOrigin === allowedNormalized) return true;
