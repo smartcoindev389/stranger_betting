@@ -482,6 +482,7 @@ export const setupSocketHandlers = (io: Server): void => {
         }
 
         // Check if user is admin - prevent admins from joining game rooms
+        // Cache this result to avoid multiple database queries
         const isAdmin = await isUserAdmin(socketWithUserId.userId);
         if (isAdmin) {
           socket.emit("error", {
@@ -517,17 +518,7 @@ export const setupSocketHandlers = (io: Server): void => {
             existingRoom.status === "waiting" &&
             existingRoom.player_count < 2
           ) {
-            // Double-check admin status before rejoining
-            const isAdminRejoin = await isUserAdmin(socketWithUserId.userId);
-            if (isAdminRejoin) {
-              // Remove admin from room if they somehow got in
-              await removePlayerFromRoom(existingRoom.id, socketWithUserId.userId);
-              socket.emit("error", {
-                message: "Admins cannot join game rooms. Please use the admin panel.",
-                adminBlocked: true,
-              });
-              return;
-            }
+            // Admin already checked above, no need to check again
             
             // User is still in a valid waiting room - rejoin socket room
             socket.join(existingRoom.id);
@@ -655,15 +646,7 @@ export const setupSocketHandlers = (io: Server): void => {
           }
         }
 
-        // Double-check admin status before joining any room
-        const isAdminBeforeJoin = await isUserAdmin(socketWithUserId.userId);
-        if (isAdminBeforeJoin) {
-          socket.emit("error", {
-            message: "Admins cannot join game rooms. Please use the admin panel.",
-            adminBlocked: true,
-          });
-          return;
-        }
+        // Admin already checked above, no need to check again
 
         // Look for waiting room with available slot
         let room = await findWaitingRoom(gameType);
@@ -692,17 +675,7 @@ export const setupSocketHandlers = (io: Server): void => {
           }
         }
 
-        // Final admin check before joining socket room
-        const isAdminFinal = await isUserAdmin(socketWithUserId.userId);
-        if (isAdminFinal) {
-          // Remove from room if somehow got added
-          await removePlayerFromRoom(room.id, socketWithUserId.userId);
-          socket.emit("error", {
-            message: "Admins cannot join game rooms. Please use the admin panel.",
-            adminBlocked: true,
-          });
-          return;
-        }
+        // Admin already checked above, no need to check again
 
         // Join socket room FIRST before checking players
         socket.join(room.id);
@@ -842,6 +815,7 @@ export const setupSocketHandlers = (io: Server): void => {
           }
 
           // Check if user is admin - prevent admins from joining game rooms
+          // Cache this result to avoid multiple database queries
           const isAdmin = await isUserAdmin(socketWithUserId.userId);
           if (isAdmin) {
             socket.emit("error", {
@@ -879,15 +853,7 @@ export const setupSocketHandlers = (io: Server): void => {
             room = keywordRooms[0];
           }
 
-          // Double-check admin status before joining any room
-          const isAdminBeforeJoin = await isUserAdmin(socketWithUserId.userId);
-          if (isAdminBeforeJoin) {
-            socket.emit("error", {
-              message: "Admins cannot join game rooms. Please use the admin panel.",
-              adminBlocked: true,
-            });
-            return;
-          }
+          // Admin already checked above, no need to check again
 
           if (!room) {
             const roomId = await createRoom(gameType, keyword);
@@ -903,17 +869,7 @@ export const setupSocketHandlers = (io: Server): void => {
             }
           }
 
-          // Final admin check before joining socket room
-          const isAdminFinal = await isUserAdmin(socketWithUserId.userId);
-          if (isAdminFinal) {
-            // Remove from room if somehow got added
-            await removePlayerFromRoom(room.id, socketWithUserId.userId);
-            socket.emit("error", {
-              message: "Admins cannot join game rooms. Please use the admin panel.",
-              adminBlocked: true,
-            });
-            return;
-          }
+          // Admin already checked above, no need to check again
 
           socket.join(room.id);
           userRooms.set(socketWithUserId.userId, room.id);
