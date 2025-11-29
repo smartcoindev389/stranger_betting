@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Video, VideoOff, Mic, MicOff } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { RTCManager, getLocalStream, startVideo, toggleAudio, toggleVideoTrack } from '../utils/webrtc';
 import { getSocket } from '../utils/socket';
 import { useNotification } from '../contexts/NotificationContext';
@@ -17,6 +18,7 @@ export default function VideoPanel({
   currentUserId,
   roomId 
 }: VideoPanelProps) {
+  const { t } = useTranslation();
   const { showNotification } = useNotification();
   const [isVideoOn, setIsVideoOn] = useState(false);
   const [isMuted, setIsMuted] = useState(true); // Start muted by default
@@ -32,6 +34,57 @@ export default function VideoPanel({
   
   // Create stable key from players (only changes when player IDs change, not array reference)
   const playersKey = players?.map(p => p.id).sort().join(',') || '';
+
+  // Helper function to set up track handlers (ensures they're always set up)
+  const setupTrackHandlers = (rtcManager: RTCManager) => {
+    // Remove any existing track listeners to avoid duplicates
+    rtcManager.removeAllListeners('track');
+    rtcManager.removeAllListeners('icecandidate');
+    
+    const socket = socketRef.current;
+    
+    // Handle remote track - ensure it only goes to remote video element
+    rtcManager.on('track', (remoteStream: MediaStream) => {
+      console.log('Remote track received:', remoteStream);
+      if (remoteVideoRef.current && remoteStream) {
+        // Ensure we're not accidentally assigning local stream
+        const localStream = getLocalStream();
+        const isLocalStream = localStream && (
+          remoteStream === localStream || 
+          remoteStream.id === localStream.id ||
+          // Check track IDs to be extra sure
+          (remoteStream.getVideoTracks().length > 0 && 
+           localStream.getVideoTracks().length > 0 &&
+           remoteStream.getVideoTracks()[0].id === localStream.getVideoTracks()[0].id)
+        );
+        
+        if (!isLocalStream) {
+          // Ensure local video element doesn't have this stream
+          if (localVideoRef.current && localVideoRef.current.srcObject === remoteStream) {
+            console.warn('Preventing local video from showing remote stream');
+            localVideoRef.current.srcObject = null;
+          }
+          
+          remoteVideoRef.current.srcObject = remoteStream;
+          setHasRemoteVideo(true);
+          remoteVideoRef.current.play().catch((err) => {
+            console.error('Error playing remote video:', err);
+          });
+        } else {
+          console.warn('Received local stream as remote stream, ignoring');
+        }
+      }
+    });
+
+    // Handle ICE candidates
+    if (socket) {
+      rtcManager.on('icecandidate', (candidate: RTCIceCandidate) => {
+        socket.emit('webrtc_ice_candidate', {
+          candidate: candidate.toJSON(),
+        });
+      });
+    }
+  };
 
   // Initialize WebRTC connection when both players are present
   useEffect(() => {
@@ -60,27 +113,17 @@ export default function VideoPanel({
           // Create new peer connection
           rtcManagerRef.current = new RTCManager();
           
+          // Set up track handlers immediately
+          setupTrackHandlers(rtcManagerRef.current);
+          
           if (localStream) {
             rtcManagerRef.current.addTracks(localStream);
           }
-
-          // Handle remote track
-          rtcManagerRef.current.on('track', (stream: MediaStream) => {
-            if (remoteVideoRef.current) {
-              remoteVideoRef.current.srcObject = stream;
-              setHasRemoteVideo(true);
-              remoteVideoRef.current.play().catch(console.error);
-            }
-          });
-
-          // Handle ICE candidates
-          rtcManagerRef.current.on('icecandidate', (candidate: RTCIceCandidate) => {
-            socket.emit('webrtc_ice_candidate', {
-              candidate: candidate.toJSON(),
-            });
-          });
         } else {
-          // Peer connection exists - update tracks if needed (for renegotiation)
+          // Peer connection exists - ensure track handlers are set up
+          setupTrackHandlers(rtcManagerRef.current);
+          
+          // Update tracks if needed (for renegotiation)
           if (localStream) {
             rtcManagerRef.current.replaceTracks(localStream);
           }
@@ -136,21 +179,29 @@ export default function VideoPanel({
     };
   }, [roomId, playersKey, currentUserId]); // Use stable key instead of players array reference
 
-  // Update local video when stream is available
+  // Update local video when stream is available - ensure it only shows local stream
   useEffect(() => {
     const updateLocalVideo = async () => {
       const localStream = getLocalStream();
       if (localVideoRef.current && localStream) {
-        // Only update if srcObject is different
-        if (localVideoRef.current.srcObject !== localStream) {
-          localVideoRef.current.srcObject = localStream;
-          // Ensure video plays after setting stream
-          try {
-            await localVideoRef.current.play();
-          } catch (error) {
-            console.error('Error playing local video:', error);
+        // Only update if srcObject is different and ensure it's the local stream
+        const currentSrcObject = localVideoRef.current.srcObject as MediaStream | null;
+        if (currentSrcObject !== localStream && currentSrcObject?.id !== localStream.id) {
+          // Double-check: ensure we're not accidentally assigning remote stream
+          const remoteStream = rtcManagerRef.current?.getRemoteStream();
+          if (localStream !== remoteStream && localStream.id !== remoteStream?.id) {
+            localVideoRef.current.srcObject = localStream;
+            // Ensure video plays after setting stream
+            try {
+              await localVideoRef.current.play();
+            } catch (error) {
+              console.error('Error playing local video:', error);
+            }
           }
         }
+      } else if (localVideoRef.current && !localStream) {
+        // Clear local video if stream is not available
+        localVideoRef.current.srcObject = null;
       }
     };
 
@@ -172,6 +223,9 @@ export default function VideoPanel({
       }
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = null;
+      }
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = null;
       }
       setHasRemoteVideo(false);
     };
@@ -230,25 +284,13 @@ export default function VideoPanel({
               // Create new peer connection
               setIsConnecting(true);
               rtcManagerRef.current = new RTCManager();
+              
+              // Set up track handlers immediately
+              setupTrackHandlers(rtcManagerRef.current);
+              
               if (localStream) {
                 rtcManagerRef.current.addTracks(localStream);
               }
-
-              // Handle remote track
-              rtcManagerRef.current.on('track', (remoteStream: MediaStream) => {
-                if (remoteVideoRef.current) {
-                  remoteVideoRef.current.srcObject = remoteStream;
-                  setHasRemoteVideo(true);
-                  remoteVideoRef.current.play().catch(console.error);
-                }
-              });
-
-              // Handle ICE candidates
-              rtcManagerRef.current.on('icecandidate', (candidate: RTCIceCandidate) => {
-                socket.emit('webrtc_ice_candidate', {
-                  candidate: candidate.toJSON(),
-                });
-              });
 
               // Create and send offer
               try {
@@ -260,7 +302,10 @@ export default function VideoPanel({
                 showNotification('Failed to establish video connection', 'error');
               }
             } else {
-              // Peer connection already exists - update tracks and renegotiate
+              // Peer connection already exists - ensure track handlers are set up
+              setupTrackHandlers(rtcManagerRef.current);
+              
+              // Update tracks and renegotiate
               if (localStream) {
                 try {
                   setIsConnecting(true);
@@ -307,102 +352,104 @@ export default function VideoPanel({
   };
 
   const getOpponentUsername = () => {
-    if (!currentUserId || !players || players.length < 2) return 'Opponent';
+    if (!currentUserId || !players || players.length < 2) return t('common.opponent');
     const opponent = players.find((p) => p.id !== currentUserId);
-    return opponent?.username || 'Opponent';
+    return opponent?.username || t('common.opponent');
   };
 
   const opponentUsername = getOpponentUsername();
   const opponentInitial = opponentUsername[0]?.toUpperCase() || 'O';
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-4 h-full flex flex-col">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold text-gray-800">Video Chat</h3>
+    <div className="bg-white rounded-lg sm:rounded-xl shadow-lg p-2 sm:p-3 flex flex-col">
+      <div className="flex items-center justify-between mb-1.5 sm:mb-2 flex-shrink-0">
+        <h3 className="font-semibold text-gray-800 text-xs sm:text-sm">{t('video.title')}</h3>
         {isConnecting && (
-          <span className="text-xs text-blue-600">Connecting...</span>
+          <span className="text-xs text-blue-600">{t('video.connecting')}</span>
         )}
       </div>
 
-      <div className="flex-1 grid grid-cols-2 gap-3 mb-4 min-h-0">
+      <div className="flex-1 grid grid-cols-2 gap-1.5 sm:gap-2 min-h-0 relative">
         {/* Local Video */}
-        <div className="aspect-video bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl flex items-center justify-center relative overflow-hidden">
+        <div className="aspect-video bg-gradient-to-br from-gray-800 to-gray-900 rounded-md sm:rounded-lg flex items-center justify-center relative overflow-hidden">
           <video 
             ref={localVideoRef}
-            className={`w-full h-full object-cover ${isVideoOn ? 'block' : 'hidden'}`}
+            className="w-full h-full object-cover absolute inset-0"
             autoPlay 
             muted 
             playsInline 
+            style={{ display: isVideoOn ? 'block' : 'none' }}
           />
           {!isVideoOn && (
             <div className="absolute inset-0 flex items-center justify-center text-center">
-              <div>
-                <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <span className="text-white text-xl font-bold">Y</span>
+              <div className="px-1">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-1">
+                  <span className="text-white text-sm sm:text-base font-bold">Y</span>
                 </div>
-                <p className="text-gray-400 text-xs">You</p>
+                <p className="text-gray-400 text-[10px] sm:text-xs truncate max-w-full" title={t('common.you')}>{t('common.you')}</p>
               </div>
             </div>
           )}
-          <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
-            You
+          <div className="absolute bottom-1 left-1 bg-black/50 text-white text-[10px] sm:text-xs px-1 py-0.5 rounded max-w-[calc(50%-0.25rem)] truncate" title={t('common.you')}>
+            {t('common.you')}
           </div>
         </div>
 
         {/* Remote Video */}
-        <div className="aspect-video bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl flex items-center justify-center relative overflow-hidden">
+        <div className="aspect-video bg-gradient-to-br from-gray-800 to-gray-900 rounded-md sm:rounded-lg flex items-center justify-center relative overflow-hidden">
           <video 
             ref={remoteVideoRef}
-            className="w-full h-full object-cover" 
+            className="w-full h-full object-cover absolute inset-0" 
             autoPlay 
             playsInline 
             style={{ display: hasRemoteVideo ? 'block' : 'none' }}
           />
           {!hasRemoteVideo && (
             <div className="absolute inset-0 flex items-center justify-center text-center">
-              <div>
-                <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <span className="text-white text-xl font-bold">
+              <div className="px-1">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-1">
+                  <span className="text-white text-sm sm:text-base font-bold">
                     {opponentInitial}
                   </span>
                 </div>
-                <p className="text-gray-400 text-xs">
+                <p className="text-gray-400 text-[10px] sm:text-xs truncate max-w-full" title={opponentUsername}>
                   {opponentUsername}
                 </p>
               </div>
             </div>
           )}
-          <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+          <div className="absolute bottom-1 left-1 bg-black/50 text-white text-[10px] sm:text-xs px-1 py-0.5 rounded max-w-[calc(50%-0.25rem)] truncate" title={opponentUsername}>
             {opponentUsername}
           </div>
         </div>
-      </div>
 
-      <div className="flex gap-2 justify-center">
-        <button
-          onClick={toggleVideo}
-          disabled={isProcessing}
-          className={`p-3 rounded-full transition-colors ${
-            isVideoOn
-              ? 'bg-blue-600 text-white hover:bg-blue-700'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-          } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
-          title={isVideoOn ? 'Turn off video' : 'Turn on video'}
-        >
-          {isVideoOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
-        </button>
+        {/* Control buttons positioned over the video area */}
+        <div className="absolute bottom-1 sm:bottom-2 left-1/2 transform -translate-x-1/2 flex gap-1 sm:gap-1.5 justify-center z-10">
+          <button
+            onClick={toggleVideo}
+            disabled={isProcessing}
+            className={`p-1.5 sm:p-2 rounded-full transition-colors shadow-lg touch-manipulation min-h-[36px] min-w-[36px] sm:min-h-[40px] sm:min-w-[40px] flex items-center justify-center ${
+              isVideoOn
+                ? 'bg-blue-600 text-white active:bg-blue-700 sm:hover:bg-blue-700'
+                : 'bg-gray-200 text-gray-700 active:bg-gray-300 sm:hover:bg-gray-300'
+            } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+            title={isVideoOn ? 'Turn off video' : 'Turn on video'}
+          >
+            {isVideoOn ? <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <VideoOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+          </button>
 
-        <button
-          onClick={toggleMute}
-          className={`p-3 rounded-full transition-colors ${
-            isMuted
-              ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              : 'bg-blue-600 text-white hover:bg-blue-700'
-          }`}
-          title={isMuted ? 'Unmute' : 'Mute'}
-        >
-          {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-        </button>
+          <button
+            onClick={toggleMute}
+            className={`p-1.5 sm:p-2 rounded-full transition-colors shadow-lg touch-manipulation min-h-[36px] min-w-[36px] sm:min-h-[40px] sm:min-w-[40px] flex items-center justify-center ${
+              isMuted
+                ? 'bg-gray-200 text-gray-700 active:bg-gray-300 sm:hover:bg-gray-300'
+                : 'bg-blue-600 text-white active:bg-blue-700 sm:hover:bg-blue-700'
+            }`}
+            title={isMuted ? 'Unmute' : 'Mute'}
+          >
+            {isMuted ? <MicOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Mic className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+          </button>
+        </div>
       </div>
     </div>
   );

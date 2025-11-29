@@ -25,6 +25,7 @@
     "you": "Tú",
     "opponent": "Oponente",
     "guest": "Invitado",
+    "unknown": "Desconocido",
     "connected": "Conectado",
     "offline": "Desconectado",
     "online": "En línea"
@@ -126,7 +127,7 @@
     }
   },
   "chat": {
-    "title": "Chat",
+    "title": "Charlar",
     "noMessages": "Aún no hay mensajes. ¡Comienza a chatear!",
     "typeMessage": "Escribe un mensaje...",
     "send": "Enviar"
@@ -252,7 +253,16 @@
   "header": {
     "wallet": "Billetera",
     "logoutConfirm": "¿Estás seguro de que deseas cerrar sesión?",
-    "logoutTitle": "Cerrar Sesión"
+    "logoutTitle": "Cerrar Sesión",
+    "updatePlatform": "Actualizar esta plataforma",
+    "updateButton": "Apoyar, donar R$1",
+    "updateDescription": "Apoya la plataforma depositando 1 R$ vía Pix",
+    "updateDonationMessage": "¡Tu apoyo nos ayuda a mantener y mejorar la plataforma, garantizando mejores funciones y una experiencia de juego estable para todos!",
+    "updateAmount": "Cantidad: R$ 1,00",
+    "updateLoginRequired": "Por favor, inicia sesión para actualizar la plataforma",
+    "updateFailed": "Error al procesar el pago de actualización",
+    "updateQrCodeGenerated": "Código QR generado. Por favor, escanéalo para completar el pago.",
+    "updateCompleted": "¡Gracias por apoyar la plataforma!"
   },
   "dialog": {
     "alert": "Alerta",
@@ -295,7 +305,9 @@
     "insufficientBalanceGeneric": "El juego no puede comenzar: saldo insuficiente. Por favor, carga tu saldo para iniciar el juego.",
     "insufficientBalance": "Saldo insuficiente",
     "rematchInsufficientBalanceSingle": "La revancha no puede comenzar: {{players}} no tiene saldo suficiente (R$ {{amount}} requerido).",
-    "rematchInsufficientBalanceMultiple": "La revancha no puede comenzar: {{players}} no tienen saldo suficiente (R$ {{amount}} requerido)."
+    "rematchInsufficientBalanceMultiple": "La revancha no puede comenzar: {{players}} no tienen saldo suficiente (R$ {{amount}} requerido).",
+    "roomNotFound": "Sala no encontrada",
+    "notInRoom": "No estás en una sala"
   },
   "authCallback": {
     "title": "Elige Tu Nombre de Usuario",
@@ -376,7 +388,32 @@
     "invalidBalanceAmount": "Cantidad de saldo inválida",
     "balanceUpdatedSuccess": "Saldo actualizado para {{username}}",
     "failedToUpdateBalance": "Error al actualizar saldo",
-    "errorUpdatingBalance": "Error al actualizar saldo"
+    "errorUpdatingBalance": "Error al actualizar saldo",
+    "withdrawals": "Retiros",
+    "withdrawalRequests": "Solicitudes de Retiro",
+    "pending": "Pendiente",
+    "completed": "Completado",
+    "failed": "Fallido",
+    "all": "Todos",
+    "amount": "Cantidad",
+    "pixKey": "Clave Pix",
+    "currentBalance": "Saldo Actual",
+    "createdAt": "Fecha de Creación",
+    "approve": "Aprobar",
+    "reject": "Rechazar",
+    "noWithdrawalsFound": "No se encontraron solicitudes de retiro",
+    "approveWithdrawal": "Aprobar Retiro",
+    "approveWithdrawalConfirm": "¿Aprobar retiro de R$ {{amount}} para {{username}}?",
+    "rejectWithdrawal": "Rechazar Retiro",
+    "enterRejectionReason": "Ingresa el motivo del rechazo para {{username}}:",
+    "rejectionReasonPlaceholder": "Ingresa el motivo del rechazo...",
+    "withdrawalApprovedSuccess": "Retiro aprobado con éxito para {{username}}",
+    "failedToApproveWithdrawal": "Error al aprobar retiro",
+    "errorApprovingWithdrawal": "Error al aprobar retiro",
+    "withdrawalRejectedSuccess": "Retiro rechazado con éxito para {{username}}",
+    "failedToRejectWithdrawal": "Error al rechazar retiro",
+    "errorRejectingWithdrawal": "Error al rechazar retiro",
+    "errorFetchingWithdrawals": "Error al obtener solicitudes de retiro"
   },
   "language": {
     "changeLanguage": "Cambiar idioma"

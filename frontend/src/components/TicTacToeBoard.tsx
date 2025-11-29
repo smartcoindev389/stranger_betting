@@ -68,12 +68,12 @@ export default function TicTacToeBoard({ gameState, playerTeam, isMyTurn, player
   };
 
   return (
-    <div className="flex flex-col items-center justify-center p-4 h-full">
-      <div className="mb-3 text-center">
-        <p className="text-lg sm:text-xl font-semibold text-gray-800">{getStatusMessage()}</p>
-        <p className="text-xs sm:text-sm text-gray-600 mt-1">{t('game.youAre')} {playerTeam}</p>
+    <div className="flex flex-col items-center justify-center p-1 sm:p-2 md:p-4 h-full">
+      <div className="mb-1 sm:mb-2 md:mb-3 text-center px-1 sm:px-2">
+        <p className="text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl font-semibold text-gray-800">{getStatusMessage()}</p>
+        <p className="text-[10px] sm:text-xs text-gray-600 mt-0.5">{t('game.youAre')} {playerTeam}</p>
       </div>
-      <div className="grid grid-cols-3 w-full max-w-[288px] mx-auto">
+      <div className="grid grid-cols-3 w-full max-w-[200px] sm:max-w-[240px] md:max-w-[288px] mx-auto">
         {localBoard.map((value, index) => {
           const row = Math.floor(index / 3);
           const col = index % 3;
@@ -86,12 +86,12 @@ export default function TicTacToeBoard({ gameState, playerTeam, isMyTurn, player
               onClick={() => handleSquareClick(index)}
               disabled={!isMyTurn || value !== null || gameState.winner !== null || gameState.isDraw}
               className={`
-                aspect-square w-full bg-white flex items-center justify-center text-2xl sm:text-4xl
-                transition-all duration-200
-                ${!isLastCol ? 'border-r border-black' : ''}
-                ${!isLastRow ? 'border-b border-black' : ''}
+                aspect-square w-full bg-white flex items-center justify-center text-2xl sm:text-3xl md:text-4xl lg:text-5xl
+                transition-all duration-200 touch-manipulation
+                ${!isLastCol ? 'border-r-2 sm:border-r border-black' : ''}
+                ${!isLastRow ? 'border-b-2 sm:border-b border-black' : ''}
                 ${value === null && isMyTurn && !gameState.winner && !gameState.isDraw
-                  ? 'hover:bg-gray-100 cursor-pointer active:scale-95'
+                  ? 'active:bg-gray-100 sm:hover:bg-gray-100 cursor-pointer active:scale-95'
                   : 'cursor-not-allowed opacity-60'
                 }
                 ${value !== null ? 'bg-blue-50' : ''}
