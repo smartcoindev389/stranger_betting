@@ -25,6 +25,7 @@
     "you": "Você",
     "opponent": "Oponente",
     "guest": "Convidado",
+    "unknown": "Desconhecido",
     "connected": "Conectado",
     "offline": "Offline",
     "online": "Online"
@@ -126,7 +127,7 @@
     }
   },
   "chat": {
-    "title": "Chat",
+    "title": "Bater papo",
     "noMessages": "Ainda não há mensagens. Comece a conversar!",
     "typeMessage": "Digite uma mensagem...",
     "send": "Enviar"
@@ -252,14 +253,23 @@
   "header": {
     "wallet": "Carteira",
     "logoutConfirm": "Tem certeza de que deseja sair?",
-    "logoutTitle": "Sair"
+    "logoutTitle": "Sair",
+    "updatePlatform": "Atualizar esta plataforma",
+    "updateButton": "Apoiar, doar R$1",
+    "updateDescription": "Apoie a plataforma depositando 1 R$ via Pix",
+    "updateDonationMessage": "Seu apoio nos ajuda a manter e melhorar a plataforma, garantindo melhores recursos e uma experiência de jogo estável para todos!",
+    "updateAmount": "Valor: R$ 1,00",
+    "updateLoginRequired": "Por favor, faça login para atualizar a plataforma",
+    "updateFailed": "Falha ao processar pagamento de atualização",
+    "updateQrCodeGenerated": "QR code gerado. Por favor, escaneie para completar o pagamento.",
+    "updateCompleted": "Obrigado por apoiar a plataforma!"
   },
   "dialog": {
     "alert": "Alerta",
     "input": "Entrada"
   },
   "video": {
-    "title": "Videochat",
+    "title": "Bate-papo por vídeo",
     "connecting": "Conectando...",
     "turnOnVideo": "Ligar vídeo",
     "turnOffVideo": "Desligar vídeo",
@@ -295,7 +305,9 @@
     "insufficientBalanceGeneric": "O jogo não pode começar: saldo insuficiente. Por favor, carregue seu saldo para iniciar o jogo.",
     "insufficientBalance": "Saldo insuficiente",
     "rematchInsufficientBalanceSingle": "A revanche não pode começar: {{players}} não tem saldo suficiente (R$ {{amount}} necessário).",
-    "rematchInsufficientBalanceMultiple": "A revanche não pode começar: {{players}} não têm saldo suficiente (R$ {{amount}} necessário)."
+    "rematchInsufficientBalanceMultiple": "A revanche não pode começar: {{players}} não têm saldo suficiente (R$ {{amount}} necessário).",
+    "roomNotFound": "Sala não encontrada",
+    "notInRoom": "Você não está em uma sala"
   },
   "authCallback": {
     "title": "Escolha Seu Nome de Usuário",
@@ -376,7 +388,32 @@
     "invalidBalanceAmount": "Valor de saldo inválido",
     "balanceUpdatedSuccess": "Saldo atualizado para {{username}}",
     "failedToUpdateBalance": "Falha ao atualizar saldo",
-    "errorUpdatingBalance": "Erro ao atualizar saldo"
+    "errorUpdatingBalance": "Erro ao atualizar saldo",
+    "withdrawals": "Saques",
+    "withdrawalRequests": "Solicitações de Saque",
+    "pending": "Pendente",
+    "completed": "Concluído",
+    "failed": "Falhou",
+    "all": "Todos",
+    "amount": "Valor",
+    "pixKey": "Chave Pix",
+    "currentBalance": "Saldo Atual",
+    "createdAt": "Data de Criação",
+    "approve": "Aprovar",
+    "reject": "Rejeitar",
+    "noWithdrawalsFound": "Nenhuma solicitação de saque encontrada",
+    "approveWithdrawal": "Aprovar Saque",
+    "approveWithdrawalConfirm": "Aprovar saque de R$ {{amount}} para {{username}}?",
+    "rejectWithdrawal": "Rejeitar Saque",
+    "enterRejectionReason": "Digite o motivo da rejeição para {{username}}:",
+    "rejectionReasonPlaceholder": "Digite o motivo da rejeição...",
+    "withdrawalApprovedSuccess": "Saque aprovado com sucesso para {{username}}",
+    "failedToApproveWithdrawal": "Falha ao aprovar saque",
+    "errorApprovingWithdrawal": "Erro ao aprovar saque",
+    "withdrawalRejectedSuccess": "Saque rejeitado com sucesso para {{username}}",
+    "failedToRejectWithdrawal": "Falha ao rejeitar saque",
+    "errorRejectingWithdrawal": "Erro ao rejeitar saque",
+    "errorFetchingWithdrawals": "Erro ao buscar solicitações de saque"
   },
   "language": {
     "changeLanguage": "Alterar idioma"

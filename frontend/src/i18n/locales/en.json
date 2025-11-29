@@ -25,6 +25,7 @@
     "you": "You",
     "opponent": "Opponent",
     "guest": "Guest",
+    "unknown": "Unknown",
     "connected": "Connected",
     "offline": "Offline",
     "online": "Online"
@@ -252,7 +253,17 @@
   "header": {
     "wallet": "Wallet",
     "logoutConfirm": "Are you sure you want to logout?",
-    "logoutTitle": "Logout"
+    "logoutTitle": "Logout",
+    "updatePlatform": "Update this platform",
+    "updateButton": "Support, donate R$1",
+    "updateDescription": "Support the platform by depositing 1 R$ via Pix",
+    "updateDonationMessage": "Your support helps us maintain and improve the platform, ensuring better features and a stable gaming experience for everyone!",
+    "updateAmount": "Amount: R$ 1.00",
+    "updateLoginRequired": "Please login to update the platform",
+    "updateFailed": "Failed to process update payment",
+    "updateQrCodeGenerated": "QR code generated. Please scan to complete payment.",
+    "updateCompleted": "Thank you for supporting the platform!",
+    "generateQrCode": "Generate QR Code"
   },
   "dialog": {
     "alert": "Alert",
@@ -295,7 +306,9 @@
     "insufficientBalanceGeneric": "Game cannot start: insufficient balance. Please charge your balance to start the game.",
     "insufficientBalance": "Insufficient balance",
     "rematchInsufficientBalanceSingle": "Rematch cannot start: {{players}} does not have sufficient balance (R$ {{amount}} required).",
-    "rematchInsufficientBalanceMultiple": "Rematch cannot start: {{players}} do not have sufficient balance (R$ {{amount}} required)."
+    "rematchInsufficientBalanceMultiple": "Rematch cannot start: {{players}} do not have sufficient balance (R$ {{amount}} required).",
+    "roomNotFound": "Room not found",
+    "notInRoom": "You are not in a room"
   },
   "authCallback": {
     "title": "Choose Your Username",
@@ -376,7 +389,32 @@
     "invalidBalanceAmount": "Invalid balance amount",
     "balanceUpdatedSuccess": "Balance updated for {{username}}",
     "failedToUpdateBalance": "Failed to update balance",
-    "errorUpdatingBalance": "Error updating balance"
+    "errorUpdatingBalance": "Error updating balance",
+    "withdrawals": "Withdrawals",
+    "withdrawalRequests": "Withdrawal Requests",
+    "pending": "Pending",
+    "completed": "Completed",
+    "failed": "Failed",
+    "all": "All",
+    "amount": "Amount",
+    "pixKey": "Pix Key",
+    "currentBalance": "Current Balance",
+    "createdAt": "Created At",
+    "approve": "Approve",
+    "reject": "Reject",
+    "noWithdrawalsFound": "No withdrawal requests found",
+    "approveWithdrawal": "Approve Withdrawal",
+    "approveWithdrawalConfirm": "Approve withdrawal of R$ {{amount}} for {{username}}?",
+    "rejectWithdrawal": "Reject Withdrawal",
+    "enterRejectionReason": "Enter rejection reason for {{username}}:",
+    "rejectionReasonPlaceholder": "Enter rejection reason...",
+    "withdrawalApprovedSuccess": "Withdrawal approved successfully for {{username}}",
+    "failedToApproveWithdrawal": "Failed to approve withdrawal",
+    "errorApprovingWithdrawal": "Error approving withdrawal",
+    "withdrawalRejectedSuccess": "Withdrawal rejected successfully for {{username}}",
+    "failedToRejectWithdrawal": "Failed to reject withdrawal",
+    "errorRejectingWithdrawal": "Error rejecting withdrawal",
+    "errorFetchingWithdrawals": "Error fetching withdrawal requests"
   },
   "language": {
     "changeLanguage": "Change language"

@@ -36,12 +36,12 @@ function getApiBaseUrl(): string {
 
     // If not localhost, try to detect backend URL
     if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-      // For hosted projects, assume backend is on same origin
-      // This works for most hosting scenarios (Vercel, Netlify, etc.)
-      const sameOrigin = `${protocol}//${hostname}${port ? `:${port}` : ''}`;
-      console.warn('No VITE_API_URL set. Using same-origin detection:', sameOrigin);
-      console.warn('To set manually, run: localStorage.setItem("API_BASE_URL", "https://your-backend-url.com")');
-      return sameOrigin;
+      // For production, backend is on the same domain (nginx proxies to backend)
+      // Use the same protocol and hostname, no port needed
+      const detectedUrl = `${protocol}//${hostname}`;
+      console.log('No VITE_API_URL set. Detected production environment.');
+      console.log('Using same domain for API:', detectedUrl);
+      return detectedUrl;
     }
   }
 
@@ -80,6 +80,10 @@ export const API_ENDPOINTS = {
     DEPOSIT_STATUS: (transactionId: string) => getApiUrl(`api/pix/deposit/status/${transactionId}`),
     WITHDRAWAL_REQUEST: getApiUrl('api/pix/withdrawal/request'),
     WITHDRAWAL_STATUS: (transactionId: string) => getApiUrl(`api/pix/withdrawal/status/${transactionId}`),
+    BALANCE: getApiUrl('api/pix/balance'),
+    PLATFORM_UPDATE_REQUEST: getApiUrl('api/pix/platform-update/request'),
+    PLATFORM_UPDATE_STATUS: (transactionId: string) => getApiUrl(`api/pix/platform-update/status/${transactionId}`),
+    PLATFORM_UPDATE_COUNT: getApiUrl('api/pix/platform-update/count'),
   },
   // Admin endpoints
   ADMIN: {
@@ -89,12 +93,27 @@ export const API_ENDPOINTS = {
     BAN_USER: getApiUrl('api/admin/users/ban'),
     UNBAN_USER: getApiUrl('api/admin/users/unban'),
     UPDATE_BALANCE: getApiUrl('api/admin/users/balance'),
+    WITHDRAWALS: getApiUrl('api/admin/withdrawals'),
+    APPROVE_WITHDRAWAL: getApiUrl('api/admin/withdrawals/approve'),
+    REJECT_WITHDRAWAL: getApiUrl('api/admin/withdrawals/reject'),
   },
 } as const;
 
-// Socket.IO connection URL (removes /api suffix if present)
+// Socket.IO connection URL (removes /api suffix if present and converts protocol)
 export const getSocketUrl = (): string => {
   // Remove /api suffix if present, Socket.io connects to root
-  return API_BASE_URL.replace(/\/api$/, '');
+  let url = API_BASE_URL.replace(/\/api$/, '');
+  
+  // Convert HTTP/HTTPS to WS/WSS for WebSocket connections
+  // Socket.IO can handle HTTP/HTTPS, but using WS/WSS is more explicit
+  if (url.startsWith('https://')) {
+    url = url.replace('https://', 'wss://');
+  } else if (url.startsWith('http://')) {
+    url = url.replace('http://', 'ws://');
+  }
+  
+  console.log('WebSocket URL:', url, '(derived from API_BASE_URL:', API_BASE_URL, ')');
+  
+  return url;
 };
 
